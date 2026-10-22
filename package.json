@@ -1,0 +1,8 @@
+{
+  "name": "tms-ticket-loader",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser page for PMs/CTOs to bulk-create NUPI TMS tickets from a grid or an Excel sheet.",
+  "scripts": { "test": "node test/page.test.js", "template": "python3 scripts/make_template.py", "build": "python3 scripts/build_standalone.py" },
+  "devDependencies": { "jsdom": "^24.1.0", "exceljs": "^4.4.0" }
+}
