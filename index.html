@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>NUPI Ticket Loader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working surface (a grid of tickets) with a slim top bar; review and results replace the grid in place. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --surface-2: #eef1ec; --surface-3: #e3e8e1;
+  --fg: #1b2420; --muted: #5d6a63; --border: #d8ded6; --border-strong: #b9c3b9;
+  --accent: #0e7c6b; --accent-fg: #ffffff; --accent-soft: #d9efe9; --accent-ring: rgba(14,124,107,.28);
+  --ok: #1d7a3a; --ok-soft: #dcf2e2; --warn: #9a6200; --warn-soft: #fbeed0; --bad: #b3261e; --bad-soft: #f9dcd9; --info: #2456a6; --info-soft: #dde7f7;
+  --display: "Sora", "Avenir Next", "Segoe UI", sans-serif; --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  --r: 12px; --r-sm: 8px; --shadow: 0 1px 2px rgba(20,30,25,.06), 0 12px 30px -18px rgba(20,30,25,.35);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121715; --surface: #1a211e; --surface-2: #222b27; --surface-3: #2b3631;
+  --fg: #e7ece8; --muted: #9aa69f; --border: #2c3631; --border-strong: #41504a;
+  --accent: #3fc4ad; --accent-fg: #06201b; --accent-soft: #163d36; --accent-ring: rgba(63,196,173,.3);
+  --ok: #5fd08a; --ok-soft: #173a25; --warn: #f0b64a; --warn-soft: #3e2f10; --bad: #ff8a80; --bad-soft: #4a1f1c; --info: #8db5ff; --info-soft: #1d2d4a;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -18px rgba(0,0,0,.8); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #1a211e; --surface-2: #222b27; --surface-3: #2b3631;
+  --fg: #e7ece8; --muted: #9aa69f; --border: #2c3631; --border-strong: #41504a;
+  --accent: #3fc4ad; --accent-fg: #06201b; --accent-soft: #163d36; --accent-ring: rgba(63,196,173,.3);
+  --ok: #5fd08a; --ok-soft: #173a25; --warn: #f0b64a; --warn-soft: #3e2f10; --bad: #ff8a80; --bad-soft: #4a1f1c; --info: #8db5ff; --info-soft: #1d2d4a;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -18px rgba(0,0,0,.8); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h1 { font-size: 1.25rem; } h2 { font-size: 1.1rem; } h3 { font-size: .95rem; }
+p { margin: 0; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: .9em; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--surface); border-bottom: 1px solid var(--border); }
+.top .in { display: flex; align-items: center; gap: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 15px; }
+.brand small { display: block; color: var(--muted); font-size: .78rem; }
+.steps { display: flex; gap: 6px; align-items: center; margin-left: auto; font-size: .82rem; color: var(--muted); flex-wrap: wrap; }
+.step { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); }
+.step i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: .75rem; font-weight: 600; background: var(--surface-3); }
+.step.on { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+.step.on i { background: var(--accent); color: var(--accent-fg); }
+.step.done i { background: var(--ok); color: #fff; }
+.who { display: flex; align-items: center; gap: 10px; font-size: .85rem; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 600; font-size: .8rem; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: var(--r-sm); border: 1px solid transparent; background: var(--accent); color: var(--accent-fg); font-weight: 600; cursor: pointer; white-space: nowrap; line-height: 1.2; transition: filter .15s, transform .1s; }
+.btn:hover { filter: brightness(1.06); } .btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.btn:disabled { opacity: .5; cursor: default; filter: none; }
+.btn.soft { background: var(--surface-2); color: var(--fg); border-color: var(--border); }
+.btn.ghost { background: transparent; color: var(--fg); border-color: transparent; }
+.btn.ghost:hover { background: var(--surface-2); filter: none; }
+.btn.danger { background: var(--bad-soft); color: var(--bad); }
+.btn.sm { padding: 5px 10px; font-size: .85rem; }
+.btn.xs { padding: 2px 8px; font-size: .8rem; border-radius: 6px; }
+.btn.icon { padding: 5px; width: 30px; height: 30px; justify-content: center; }
+.btn svg { width: 15px; height: 15px; flex: none; }
+
+/* forms */
+.input, .cell input, .cell select, .cell textarea, select.sel, input.inp, textarea.inp { width: 100%; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); padding: 8px 10px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.input:focus, .cell input:focus, .cell select:focus, .cell textarea:focus, select.sel:focus, input.inp:focus, textarea.inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+label.lbl { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+.field + .field { margin-top: 14px; }
+.err { color: var(--bad); font-size: .88rem; }
+.note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); font-size: .9rem; }
+.note.warn { background: var(--warn-soft); } .note.bad { background: var(--bad-soft); } .note.info { background: var(--info-soft); } .note.ok { background: var(--ok-soft); }
+.note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.info { background: var(--info-soft); color: var(--info); } .pill.accent { background: var(--accent-soft); color: var(--accent); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); }
+.spin { width: 14px; height: 14px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: sp .8s linear infinite; vertical-align: -2px; }
+@keyframes sp { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* sign-in */
+.signin { max-width: 440px; margin: 48px auto 0; padding: 26px; }
+.signin h1 { font-size: 1.35rem; margin-bottom: 4px; }
+.signin .lead { color: var(--muted); margin-bottom: 20px; }
+.signin ul { margin: 18px 0 0; padding-left: 18px; color: var(--muted); font-size: .9rem; }
+
+/* toolbar */
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-block: 14px 10px; }
+.toolbar .spacer { flex: 1; }
+.search { position: relative; min-width: 200px; }
+.search input { padding-left: 32px; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); }
+.bulk { display: none; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-sm); background: var(--accent-soft); margin-bottom: 10px; font-size: .9rem; }
+.bulk.on { display: flex; }
+.bulk select { width: auto; min-width: 160px; padding: 5px 28px 5px 8px; }
+
+/* grid */
+.gridwrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); }
+table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1080px; }
+.grid th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); text-align: left; font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.grid th .req { color: var(--bad); }
+.grid td { padding: 6px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.grid tr:last-child td { border-bottom: none; }
+.grid tr.bad td { background: color-mix(in srgb, var(--bad-soft) 45%, transparent); }
+.grid tr.sel td { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.grid tr.done td { opacity: .6; }
+.grid td.n { width: 44px; text-align: center; color: var(--muted); font-size: .8rem; padding-top: 14px; font-variant-numeric: tabular-nums; }
+.grid td.ck { width: 34px; padding-top: 13px; }
+.grid td.ck input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+.cell input, .cell select { padding: 7px 9px; }
+.cell select { padding-right: 26px; }
+.cell textarea { min-height: 36px; resize: vertical; padding: 7px 9px; line-height: 1.4; }
+.cell .hint { font-size: .76rem; margin-top: 3px; }
+.cell .hint.bad { color: var(--bad); } .cell .hint.warn { color: var(--warn); } .cell .hint.ok { color: var(--ok); }
+.grid td.act { width: 70px; white-space: nowrap; padding-top: 9px; }
+.grid .dropzone td { padding: 28px; text-align: center; color: var(--muted); }
+.gridwrap.drag { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.col-name { min-width: 240px; } .col-project { min-width: 170px; } .col-user { min-width: 170px; } .col-status { min-width: 150px; } .col-desc { min-width: 260px; } .col-x { min-width: 130px; }
+.footerbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-block: 14px; }
+.footerbar .sum { color: var(--muted); font-size: .9rem; }
+.footerbar .spacer { flex: 1; }
+
+/* popovers */
+.pop { position: absolute; z-index: 20; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r); box-shadow: var(--shadow); padding: 12px; min-width: 260px; }
+.pop h3 { margin-bottom: 8px; }
+.pop label.ck { display: flex; gap: 8px; align-items: center; padding: 5px 2px; font-size: .9rem; cursor: pointer; }
+.pop label.ck input { accent-color: var(--accent); }
+.anchor { position: relative; }
+
+/* review */
+.review { display: grid; gap: 16px; padding-block: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { padding: 12px 14px; border-radius: var(--r-sm); background: var(--surface-2); }
+.tile .k { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.tile .v { font-family: var(--display); font-size: 1.5rem; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tile .s { font-size: .82rem; color: var(--muted); }
+.plan { border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--accent-soft); }
+.plan h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+.plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.plan li { display: flex; gap: 8px; align-items: flex-start; }
+.plan li svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--accent); }
+.plan li.warn svg { color: var(--warn); }
+.group { overflow: hidden; }
+.group .gh { display: flex; gap: 10px; align-items: center; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.group .gh .cnt { margin-left: auto; color: var(--muted); font-size: .85rem; }
+.rtable { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.rtable th { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.rtable td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.rtable tr:last-child td { border-bottom: none; }
+.rtable .desc { color: var(--muted); font-size: .85rem; white-space: pre-wrap; max-width: 520px; }
+.progress { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: .9rem; box-shadow: var(--shadow); z-index: 30; max-width: 90vw; }
+@media (max-width: 640px) { .steps { display: none; } .signin { margin-top: 20px; padding: 20px; } }
+</style>
+
+<div class="top"><div class="in">
+  <div class="brand"><div class="mark">T</div><div><h1>NUPI Ticket Loader</h1><small>Bulk ticket creation for TMS</small></div></div>
+  <div class="steps" id="steps"><span class="step on" data-s="1"><i>1</i>Tickets</span><span class="step" data-s="2"><i>2</i>Review</span><span class="step" data-s="3"><i>3</i>Created</span></div>
+  <div class="who" id="who" hidden><span class="avatar" id="avatar">?</span><span id="whoName"></span><button class="btn ghost sm" id="signOut">Sign out</button></div>
+</div></div>
+
+<div class="wrap">
+
+<!-- sign in -->
+<section class="card signin" id="signin">
+  <div class="note warn" id="sandboxNote" hidden style="margin-bottom:18px;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:10px;align-items:flex-start"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2 1.5 13.5h13L8 2zM8 6.5v3.5M8 11.8v.4"/></svg><div><b>One step before sign-in.</b> Pages inside claude.ai are not allowed to contact other servers, so this page cannot reach TMS from here. Save the app to your computer once and open the saved file in your browser; it works exactly the same there and talks to TMS directly.</div></div>
+    <div class="actions"><button class="btn" id="saveApp" type="button">Save the app to this computer</button><span class="muted" style="font-size:.85rem">Then double-click <b>NUPI Ticket Loader.html</b>. Keep it; it does not expire.</span></div>
+  </div>
+  <h1>Sign in to TMS</h1>
+  <p class="lead">Use the same username and password as tms.nupipay.com. Tickets are created under your account, so only people allowed to create tickets should use this page.</p>
+  <form id="loginForm">
+    <div class="field"><label class="lbl" for="user">Username</label><input class="input" id="user" autocomplete="username" required></div>
+    <div class="field"><label class="lbl" for="pass">Password</label><input class="input" id="pass" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label class="lbl" for="base">TMS address</label><input class="input mono" id="base" value="https://tms.nupipay.com"></div>
+    <div class="field err" id="loginErr"></div>
+    <div class="field actions"><button class="btn" id="loginBtn" type="submit">Sign in</button><span class="muted" id="loginBusy" hidden><span class="spin"></span> Signing in…</span></div>
+  </form>
+  <div class="note" style="margin-top:18px"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2.5h7l3 3v8H3z"/><path d="M10 2.5v3h3M5.5 9h5M5.5 11.5h5"/></svg><span style="flex:1">Want to prepare tickets first? The import sheet has the right columns and example rows. After sign-in the same sheet comes with live dropdowns of your people and projects.</span><button class="btn xs soft dlSample" type="button">Get sample sheet</button></div>
+  <ul>
+    <li>Your password is only sent to TMS to get a session token. The token stays in this browser tab.</li>
+    <li>Users, projects, statuses and ticket fields are read from TMS after sign-in, so every dropdown is live.</li>
+  </ul>
+</section>
+
+<!-- step 1: grid -->
+<section id="edit" hidden>
+  <div class="toolbar">
+    <button class="btn" id="addRow">+ Add ticket</button>
+    <button class="btn soft" id="addFive">+ 5 rows</button>
+    <label class="btn soft" for="fileIn" style="cursor:pointer">Import Excel / CSV<input id="fileIn" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" hidden></label>
+    <button class="btn soft" id="dlTemplate" title="Excel template with live dropdowns for assignee, project and status">Download template</button>
+    <button class="btn ghost sm dlSample" title="Offline sample of the import sheet with placeholder names">Sample sheet</button>
+    <div class="anchor"><button class="btn soft" id="colsBtn">Columns</button><div class="pop" id="colsPop" hidden></div></div>
+    <span class="spacer"></span>
+    <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><input class="inp" id="filter" placeholder="Filter rows…"></div>
+    <button class="btn ghost sm" id="clearAll">Clear all</button>
+  </div>
+  <div class="note info" id="draftNote" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.5"/><path d="M8 7v4M8 5v.5"/></svg><span class="grow">An unfinished batch from earlier was restored from this browser.</span><button class="btn xs soft" id="dropDraft">Discard it</button></div>
+  <div class="bulk" id="bulk">
+    <strong><span id="selCount">0</span> selected</strong>
+    <select class="sel" id="bulkProject"><option value="">Set project…</option></select>
+    <select class="sel" id="bulkUser"><option value="">Assign to…</option></select>
+    <select class="sel" id="bulkStatus"><option value="">Set status…</option></select>
+    <button class="btn sm soft" id="bulkDup">Duplicate</button>
+    <button class="btn sm danger" id="bulkDel">Delete</button>
+    <button class="btn sm ghost" id="bulkNone">Deselect</button>
+  </div>
+  <div class="gridwrap" id="gridwrap">
+    <table class="grid" id="grid"><thead><tr id="headRow"></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+  <p class="muted" style="margin-top:8px;font-size:.85rem">Tip: copy rows from Excel or Google Sheets and paste anywhere on the grid. A first row of headings is recognised. Names of people and projects are matched to TMS automatically.</p>
+  <div class="footerbar">
+    <span class="sum" id="sumLine"></span>
+    <span class="spacer"></span>
+    <span class="err" id="editErr"></span>
+    <button class="btn" id="reviewBtn">Review <span aria-hidden="true">→</span></button>
+  </div>
+</section>
+
+<!-- step 2: review -->
+<section id="review" class="review" hidden>
+  <div class="tiles" id="tiles"></div>
+  <div class="plan"><h3>What will happen when you confirm</h3><ul id="plan"></ul></div>
+  <div class="actions"><button class="btn soft sm" id="dupCheck">Check TMS for tickets with the same name</button><span class="muted" id="dupStatus"></span></div>
+  <div id="groups"></div>
+  <div class="actions"><button class="btn soft" id="backBtn">← Back to edit</button><span class="spacer" style="flex:1"></span><span class="err" id="reviewErr"></span><button class="btn" id="confirmBtn">Create <span id="confirmCount"></span> tickets in TMS</button></div>
+</section>
+
+<!-- step 3: results -->
+<section id="results" class="review" hidden>
+  <div class="card" style="padding:16px;display:grid;gap:10px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h2 id="resTitle">Creating tickets…</h2><span class="spacer" style="flex:1"></span><span class="muted num" id="resCount"></span></div>
+    <div class="progress"><i id="bar"></i></div>
+  </div>
+  <div class="card group"><table class="rtable" id="resTable"><thead><tr><th>#</th><th>Ticket</th><th>Project</th><th>Assigned to</th><th>Result</th></tr></thead><tbody id="resRows"></tbody></table></div>
+  <div class="actions" id="resActions" hidden>
+    <button class="btn soft" id="retryBtn" hidden>Retry failed</button>
+    <button class="btn soft" id="exportBtn">Save results as CSV</button>
+    <button class="btn soft" id="copyBtn">Copy results</button>
+    <span class="spacer" style="flex:1"></span>
+    <button class="btn" id="newBatch">Start a new batch</button>
+  </div>
+</section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const b64 = (s) => btoa(unescape(encodeURIComponent(s)));
+  const isDate = (v) => Object.prototype.toString.call(v) === "[object Date]";
+  const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const ICON = {
+    check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 8.5 3 3 7-7"/></svg>',
+    warn: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2 1.5 13.5h13L8 2zM8 6.5v3.5M8 11.8v.4"/></svg>',
+    arrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg>',
+    user: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.5 14c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/></svg>',
+    trash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.6 8.5h4.8l.6-8.5"/></svg>',
+    copy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>',
+  };
+  let toastT; function toast(msg) { let t = $("toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2800); }
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } }, del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } } };
+  const sess = { get(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } }, del(k) { try { sessionStorage.removeItem(k); } catch { /* ignore */ } } };
+
+  // ---------- environment ----------
+  // Inside the claude.ai viewer `window.claude.use` exists and network calls are blocked; opened from disk or any
+  // ordinary host there is no window.claude and fetch works (TMS allows cross-origin requests with the Authorization header).
+  const IN_SANDBOX = !!(window.claude && typeof window.claude.use === "function");
+  const SOURCE_HTML = "<!doctype html>\n" + document.documentElement.outerHTML; // captured before any state changes, for "Save the app"
+  async function saveFile(filename, data) {
+    if (IN_SANDBOX) {
+      const dl = await window.claude.use("downloads");
+      if (!dl) throw Object.assign(new Error("Downloads are not available in this view."), { code: "unavailable" });
+      return dl.save({ filename, data });
+    }
+    const blob = data instanceof Blob ? data : new Blob([data], { type: /\.csv$/i.test(filename) ? "text/csv" : /\.html?$/i.test(filename) ? "text/html" : "application/octet-stream" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return { status: "saved" };
+  }
+
+  // ---------- TMS client (EspoCRM REST) ----------
+  const tms = {
+    base: "https://tms.nupipay.com", auth: "", user: null,
+    get api() { return this.base.replace(/\/+$/, "") + "/api/v1"; },
+    async req(method, path, body) {
+      let res;
+      try {
+        res = await fetch(this.api + "/" + path, { method, headers: Object.assign({ Authorization: "Basic " + this.auth }, body !== undefined ? { "Content-Type": "application/json" } : {}), body: body === undefined ? undefined : JSON.stringify(body) });
+      } catch (e) {
+        // TMS sends no CORS headers on 401/403, so the browser reports a network error. Treat it as "refused".
+        const err = new Error(IN_SANDBOX ? "This page cannot reach TMS from inside claude.ai. Save the app to your computer (button above) and open the saved file." : "Could not reach TMS: the username or password was refused, the session expired, or the TMS address is wrong."); err.status = 0; throw err;
+      }
+      const text = await res.text();
+      if (!res.ok) { const err = new Error("TMS " + method + " " + path.split("?")[0] + " failed: HTTP " + res.status + (res.headers.get("x-status-reason") ? " (" + res.headers.get("x-status-reason") + ")" : "") + (text ? " " + text.slice(0, 200) : "")); err.status = res.status; throw err; }
+      return text ? JSON.parse(text) : undefined;
+    },
+    async login(base, username, password) {
+      this.base = base; this.auth = b64(username + ":" + password);
+      const data = await this.req("GET", "App/user");
+      if (!data || !data.user || !data.user.id) throw new Error("TMS did not return a user.");
+      this.user = { id: data.user.id, name: data.user.name || username, userName: username, isAdmin: !!data.user.isAdmin, type: data.user.type };
+      if (data.token) {
+        const tokenAuth = b64(username + ":" + data.token);
+        const prev = this.auth; this.auth = tokenAuth;
+        try { await this.req("GET", "App/user"); } catch { this.auth = prev; } // some servers want the token header; fall back to password for this tab
+      }
+      sess.set("tl.session", { base: this.base, auth: this.auth, user: this.user });
+      return this.user;
+    },
+    restore() { const s = sess.get("tl.session"); if (s && s.auth && s.user) { this.base = s.base; this.auth = s.auth; this.user = s.user; return true; } return false; },
+    async logout() { try { await this.req("POST", "App/action/destroyAuthToken", { token: atob(this.auth).split(":").slice(1).join(":") }); } catch { /* ignore */ } this.auth = ""; this.user = null; sess.del("tl.session"); },
+    ticketUrl(id) { return this.base.replace(/\/+$/, "") + "/#ProjectTask/view/" + id; },
+    async list(entity, params) { const q = new URLSearchParams(Object.assign({ maxSize: "200", offset: "0" }, params)); const d = await this.req("GET", entity + "?" + q); return (d && d.list) || []; },
+    async listAll(entity, params) { const out = []; for (let off = 0; off < 2000; off += 200) { const page = await this.list(entity, Object.assign({}, params, { offset: String(off) })); out.push(...page); if (page.length < 200) break; } return out; },
+  };
+
+  // ---------- reference data ----------
+  const ref = { users: [], projects: [], fields: [], columnsByProject: {}, allColumns: [], labels: {}, options: {} };
+  const CORE = [
+    { key: "name", label: "Ticket title", required: true, type: "varchar", cls: "col-name", core: true },
+    { key: "projectId", label: "Project", required: true, type: "project", cls: "col-project", core: true },
+    { key: "assignedUserId", label: "Assign to", type: "user", cls: "col-user", core: true },
+    { key: "columnId", label: "Status", type: "status", cls: "col-status", core: true },
+    { key: "description", label: "Description", type: "text", cls: "col-desc", core: true },
+  ];
+  const SKIP_FIELDS = new Set(["id", "name", "description", "deleted", "createdAt", "modifiedAt", "createdBy", "modifiedBy", "assignedUser", "teams", "project", "column", "columnId", "columnName", "cStageForAnalysis", "number", "projectTasks", "loggedHours", "actualHours", "attachments", "followers", "isFollowed", "versionNumber", "stream", "parent"]);
+  const ALLOWED_TYPES = new Set(["varchar", "text", "enum", "date", "datetime", "int", "float", "bool", "url", "multiEnum"]);
+
+  async function loadReference(progress) {
+    progress("Loading people…");
+    try {
+      ref.users = (await tms.listAll("User", { orderBy: "name", order: "asc", select: "name,userName,type,isActive", "where[0][type]": "isTrue", "where[0][attribute]": "isActive" })).filter((u) => !u.type || ["regular", "admin"].includes(u.type));
+    } catch (e) {
+      ref.users = [];
+    }
+    progress("Loading projects…");
+    try { ref.projects = await tms.listAll("Project", { orderBy: "name", order: "asc", select: "name" }); } catch { ref.projects = []; }
+    progress("Reading ticket fields and statuses…");
+    let defs = {}, i18n = {};
+    try { defs = (await tms.req("GET", "Metadata?key=entityDefs.ProjectTask.fields")) || {}; } catch { defs = {}; }
+    try { i18n = (await tms.req("GET", "I18n")) || {}; } catch { i18n = {}; }
+    ref.labels = (i18n.ProjectTask && i18n.ProjectTask.fields) || {};
+    ref.options = (i18n.ProjectTask && i18n.ProjectTask.options) || {};
+    ref.fields = Object.entries(defs).filter(([k, d]) => d && ALLOWED_TYPES.has(d.type) && !SKIP_FIELDS.has(k) && !d.readOnly && !d.disabled && !d.utility && !/Id$|Name$|Ids$|Names$/.test(k))
+      .map(([k, d]) => ({ key: k, label: ref.labels[k] || k.replace(/^c/, "").replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim(), type: d.type, required: !!d.required, options: d.options || null, cls: "col-x" }));
+    // Fallbacks when lists are restricted: harvest from recent tickets.
+    let recent = [];
+    try { recent = await tms.listAll("ProjectTask", { orderBy: "modifiedAt", order: "desc", select: "columnId,columnName,projectId,projectName,assignedUserId,assignedUserName" }); } catch { recent = []; }
+    if (!ref.users.length) { const m = new Map(); recent.forEach((t) => { if (t.assignedUserId && !m.has(t.assignedUserId)) m.set(t.assignedUserId, { id: t.assignedUserId, name: t.assignedUserName || t.assignedUserId }); }); ref.users = [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
+    if (!ref.projects.length) { const m = new Map(); recent.forEach((t) => { if (t.projectId && !m.has(t.projectId)) m.set(t.projectId, { id: t.projectId, name: t.projectName || t.projectId }); }); ref.projects = [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
+    const byP = {}; const all = new Map();
+    recent.forEach((t) => { if (t.columnId && t.columnName) { (byP[t.projectId] = byP[t.projectId] || new Map()).set(t.columnId, { id: t.columnId, name: t.columnName }); all.set(t.columnId, { id: t.columnId, name: t.columnName }); } });
+    Object.keys(byP).forEach((p) => { ref.columnsByProject[p] = [...byP[p].values()]; });
+    ref.allColumns = [...all.values()];
+  }
+  function columnsFor(projectId) { return (projectId && ref.columnsByProject[projectId]) || ref.allColumns; }
+
+  // ---------- name matching ----------
+  function matchName(input, items, opts) {
+    opts = opts || {};
+    const raw = String(input ?? "").trim(); if (!raw) return { item: null, confidence: 0 };
+    const byId = items.find((i) => i.id === raw); if (byId) return { item: byId, confidence: 1 };
+    const q = norm(raw);
+    const scored = items.map((i) => {
+      const n = norm(i.name), u = norm(i.userName || "");
+      let s = 0;
+      if (n === q || (u && u === q)) s = 1;
+      else if (n.startsWith(q) || q.startsWith(n)) s = 0.9;
+      else if (n.includes(q) || q.includes(n)) s = 0.8;
+      else { const qt = q.split(" ").filter(Boolean), nt = n.split(" ").filter(Boolean); const hit = qt.filter((t) => nt.some((x) => x.startsWith(t))).length; if (hit) s = 0.5 + 0.3 * (hit / Math.max(qt.length, nt.length)); }
+      return { item: i, s };
+    }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+    if (!scored.length) return { item: null, confidence: 0 };
+    if (scored.length > 1 && scored[0].s === scored[1].s && scored[0].s < 1) return { item: null, confidence: 0, ambiguous: scored.slice(0, 3).map((x) => x.item) };
+    return { item: scored[0].item, confidence: scored[0].s };
+  }
+
+  // ---------- rows ----------
+  let rows = []; let visibleCols = new Set(["name", "projectId", "assignedUserId", "columnId", "description"]);
+  function allCols() { return CORE.concat(ref.fields); }
+  function colByKey(k) { return allCols().find((c) => c.key === k); }
+  function newRow(seed) { return Object.assign({ _id: uid(), name: "", projectId: "", assignedUserId: "", columnId: "", description: "", _hint: {}, _sel: false, _done: null }, seed || {}); }
+  function saveDraft() { store.set("tl.draft", { rows: rows.map((r) => { const c = Object.assign({}, r); delete c._sel; delete c._done; return c; }), cols: [...visibleCols], at: Date.now() }); }
+  function restoreDraft() { const d = store.get("tl.draft"); if (d && Array.isArray(d.rows) && d.rows.length && d.rows.some((r) => r.name || r.description)) { rows = d.rows.map((r) => newRow(r)); if (Array.isArray(d.cols)) d.cols.forEach((c) => visibleCols.add(c)); return true; } return false; }
+
+  // ---------- header synonyms for import ----------
+  const SYN = {
+    name: ["ticket", "ticket title", "title", "task", "task name", "summary", "name", "subject"],
+    projectId: ["project", "project name", "module", "app"],
+    assignedUserId: ["assign to", "assigned to", "assignee", "owner", "developer", "assigned user", "user", "person", "dev"],
+    columnId: ["status", "column", "stage", "state"],
+    description: ["description", "details", "notes", "acceptance criteria", "desc"],
+  };
+  function headerToKey(h, strict) {
+    const q = norm(h).replace(/\s*\*$/, ""); if (!q) return null;
+    for (const [k, syns] of Object.entries(SYN)) if (syns.includes(q)) return k;
+    const f = allCols().find((c) => norm(c.label) === q || norm(c.key) === q); if (f) return f.key;
+    if (strict) return null;
+    for (const [k, syns] of Object.entries(SYN)) if (syns.some((s) => q.includes(s))) return k;
+    return null;
+  }
+  /** A row is a header when at least two cells are known headings, or every filled cell is one. */
+  function isHeaderRow(cells) {
+    const filled = cells.filter((c) => String(c ?? "").trim());
+    if (!filled.length) return false;
+    const strict = filled.map((c) => headerToKey(c, true)).filter(Boolean).length;
+    return strict >= 2 || strict === filled.length;
+  }
+  function parseDelimited(text) {
+    const t = String(text || "").replace(/\r\n?/g, "\n"); if (!t.trim()) return [];
+    const firstLine = t.split("\n")[0]; const delim = firstLine.includes("\t") ? "\t" : (firstLine.split(",").length > firstLine.split(";").length ? "," : ";");
+    const out = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (q) { if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === delim) { row.push(cell); cell = ""; }
+      else if (ch === "\n") { row.push(cell); out.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    row.push(cell); if (row.some((c) => c !== "")) out.push(row);
+    return out.filter((r) => r.some((c) => String(c).trim() !== ""));
+  }
+  /** Turns a 2-D array (optional header row) into rows with names resolved against TMS lists. */
+  function mapImported(table) {
+    if (!table.length) return { rows: [], mapped: [], unmapped: [] };
+    const hasHeader = isHeaderRow(table[0]);
+    const first = hasHeader ? table[0].map((h) => headerToKey(h)) : [];
+    const keys = hasHeader ? first : ["name", "projectId", "assignedUserId", "columnId", "description"];
+    const body = hasHeader ? table.slice(1) : table;
+    const unmapped = hasHeader ? table[0].filter((h, i) => !first[i] && String(h).trim()) : [];
+    const out = body.map((cells) => {
+      const r = newRow(); r._hint = {};
+      keys.forEach((k, i) => {
+        if (!k) return; const v = cells[i] == null ? "" : (isDate(cells[i]) ? cells[i].toISOString().slice(0, 10) : String(cells[i]).trim());
+        if (!v) return;
+        if (k === "projectId") { const m = matchName(v, ref.projects); r.projectId = m.item ? m.item.id : ""; r._hint.projectId = m.item ? (m.confidence < 1 ? { cls: "warn", text: "“" + v + "” read as " + m.item.name } : null) : { cls: "bad", text: "No project named “" + v + "”" + (m.ambiguous ? " (could be " + m.ambiguous.map((x) => x.name).join(" / ") + ")" : "") }; }
+        else if (k === "assignedUserId") { const m = matchName(v, ref.users); r.assignedUserId = m.item ? m.item.id : ""; r._hint.assignedUserId = m.item ? (m.confidence < 1 ? { cls: "warn", text: "“" + v + "” read as " + m.item.name } : null) : { cls: "bad", text: "No user named “" + v + "”" + (m.ambiguous ? " (could be " + m.ambiguous.map((x) => x.name).join(" / ") + ")" : "") }; }
+        else if (k === "columnId") { r._statusText = v; }
+        else { const f = colByKey(k); if (f && f.type === "enum" && f.options) { const m = matchName(v, f.options.map((o) => ({ id: o, name: (ref.options[k] || {})[o] || o }))); r[k] = m.item ? m.item.id : v; } else if (f && f.type === "bool") r[k] = /^(1|true|yes|y)$/i.test(v); else r[k] = v; visibleCols.add(k); }
+      });
+      // status resolves against the project's columns (or all known columns)
+      if (r._statusText) { const m = matchName(r._statusText, columnsFor(r.projectId)); r.columnId = m.item ? m.item.id : ""; r._hint.columnId = m.item ? null : { cls: "bad", text: "No status named “" + r._statusText + "”" }; delete r._statusText; }
+      return r;
+    }).filter((r) => r.name || r.description);
+    return { rows: out, mapped: keys.filter(Boolean), unmapped };
+  }
+  async function importWorkbook(buffer) {
+    if (!window.ExcelJS) throw new Error("The Excel library did not load. Paste the rows instead, or import a CSV.");
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buffer);
+    const ws = wb.getWorksheet("Tickets") || wb.worksheets.find((w) => w.state !== "hidden" && !/^(lists|instructions|readme)$/i.test(w.name)) || wb.worksheets[0];
+    if (!ws) throw new Error("The workbook has no sheets.");
+    const table = [];
+    ws.eachRow({ includeEmpty: false }, (row) => { const cells = []; for (let c = 1; c <= ws.columnCount; c++) { const v = row.getCell(c).value; cells.push(v && typeof v === "object" ? (v.richText ? v.richText.map((t) => t.text).join("") : v.text !== undefined ? v.text : v.result !== undefined ? v.result : isDate(v) ? v : "") : v); } table.push(cells); });
+    // Skip a title/instruction block above the real header: find the first row that maps to >= 2 known columns.
+    let start = 0; for (let i = 0; i < Math.min(table.length, 10); i++) { if (isHeaderRow(table[i]) && table[i].filter((c) => String(c ?? "").trim()).length >= 2) { start = i; break; } }
+    return mapImported(table.slice(start));
+  }
+
+  // ---------- template workbook ----------
+  async function buildTemplate() {
+    const wb = new ExcelJS.Workbook(); wb.creator = "NUPI Ticket Loader";
+    const ws = wb.addWorksheet("Tickets", { views: [{ state: "frozen", ySplit: 1 }] });
+    const lists = wb.addWorksheet("Lists"); const info = wb.addWorksheet("Instructions");
+    const cols = allCols().filter((c) => visibleCols.has(c.key));
+    ws.columns = cols.map((c) => ({ header: c.label + (c.required ? " *" : ""), key: c.key, width: c.key === "name" ? 46 : c.key === "description" ? 60 : 24 }));
+    const head = ws.getRow(1); head.height = 24; head.eachCell((cell) => { cell.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C6B" } }; cell.alignment = { vertical: "middle" }; cell.border = { bottom: { style: "thin", color: { argb: "FF0A5A4E" } } }; });
+    ws.autoFilter = { from: "A1", to: { row: 1, column: cols.length } };
+    // Lists sheet: one column per dropdown
+    const listCols = [["Users", ref.users.map((u) => u.name)], ["Projects", ref.projects.map((p) => p.name)], ["Statuses", ref.allColumns.map((c) => c.name)]];
+    allCols().filter((c) => c.type === "enum" && c.options).forEach((c) => listCols.push([c.label, c.options.map((o) => (ref.options[c.key] || {})[o] || o)]));
+    listCols.forEach(([title, values], i) => { const col = lists.getColumn(i + 1); col.width = 28; lists.getCell(1, i + 1).value = title; lists.getCell(1, i + 1).font = { name: "Arial", bold: true }; values.forEach((v, r) => { lists.getCell(r + 2, i + 1).value = v; }); });
+    lists.eachRow((row) => row.eachCell((c) => { c.font = Object.assign({ name: "Arial" }, c.font || {}); }));
+    const letter = (n) => { let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+    const listRef = (i, len) => "Lists!$" + letter(i + 1) + "$2:$" + letter(i + 1) + "$" + Math.max(2, len + 1);
+    const MAXR = 1000;
+    cols.forEach((c, ci) => {
+      const L = letter(ci + 1); const range = L + "2:" + L + MAXR;
+      if (c.key === "assignedUserId") ws.dataValidations.add(range, { type: "list", allowBlank: true, formulae: [listRef(0, ref.users.length)], showErrorMessage: true, errorTitle: "Unknown user", error: "Pick a user from the list (names come from TMS)." });
+      else if (c.key === "projectId") ws.dataValidations.add(range, { type: "list", allowBlank: false, formulae: [listRef(1, ref.projects.length)], showErrorMessage: true, errorTitle: "Unknown project", error: "Pick a project from the list." });
+      else if (c.key === "columnId") ws.dataValidations.add(range, { type: "list", allowBlank: true, formulae: [listRef(2, ref.allColumns.length)], showErrorMessage: true, errorTitle: "Unknown status", error: "Pick a status from the list, or leave blank for the default." });
+      else if (c.type === "enum" && c.options) { const li = listCols.findIndex(([t]) => t === c.label); if (li >= 0) ws.dataValidations.add(range, { type: "list", allowBlank: true, formulae: [listRef(li, c.options.length)] }); }
+      else if (c.type === "date") ws.dataValidations.add(range, { type: "date", allowBlank: true, operator: "greaterThan", formulae: [new Date(2020, 0, 1)], showErrorMessage: true, error: "Enter a date (YYYY-MM-DD)." });
+      else if (c.type === "int" || c.type === "float") ws.dataValidations.add(range, { type: "decimal", allowBlank: true, operator: "greaterThanOrEqual", formulae: [0] });
+      else if (c.type === "bool") ws.dataValidations.add(range, { type: "list", allowBlank: true, formulae: ['"Yes,No"'] });
+    });
+    // Two example rows, clearly marked
+    const ex = [{ name: "EXAMPLE – Add OTP resend cooldown on login screen", projectId: ref.projects[0] ? ref.projects[0].name : "", assignedUserId: ref.users[0] ? ref.users[0].name : "", columnId: ref.allColumns[0] ? ref.allColumns[0].name : "", description: "Show a 30 second countdown after the first OTP, disable the resend button meanwhile, and log the resend event." },
+      { name: "EXAMPLE – Fix settlement report export timeout", projectId: ref.projects[1] ? ref.projects[1].name : (ref.projects[0] ? ref.projects[0].name : ""), assignedUserId: "", columnId: "", description: "Export of more than 5000 rows times out. Move the export to a background job and email the file." }];
+    ex.forEach((e) => { const r = ws.addRow(cols.map((c) => e[c.key] || "")); r.eachCell((cell) => { cell.font = { name: "Arial", italic: true, color: { argb: "FF6B7A72" } }; cell.alignment = { wrapText: true, vertical: "top" }; }); });
+    for (let r = 4; r <= 40; r++) ws.getRow(r).eachCell({ includeEmpty: true }, (c) => { c.font = { name: "Arial" }; });
+    ws.getColumn("description").alignment = { wrapText: true, vertical: "top" };
+    ws.getColumn("name").alignment = { wrapText: true, vertical: "top" };
+    // Instructions
+    info.getColumn(1).width = 110;
+    const lines = [["How to use this sheet", true], ["1. Fill one ticket per row on the “Tickets” sheet. Delete the two EXAMPLE rows before importing.", false], ["2. Columns marked * are required (Ticket title and Project).", false], ["3. Assign to, Project and Status are dropdowns. The lists on the “Lists” sheet were read from TMS on " + new Date().toISOString().slice(0, 10) + " for " + tms.user.name + ". Download a fresh template when people or projects change.", false], ["4. Leave Status blank to use the project’s default column. Leave Assign to blank to create the ticket unassigned.", false], ["5. Back in NUPI Ticket Loader, click “Import Excel / CSV”, check the preview, Review, then Confirm. Nothing is created until you confirm.", false], ["", false], ["Statuses are shared across projects in this list; the loader matches each one against the chosen project’s board and flags any that do not exist there.", false]];
+    lines.forEach(([t, bold], i) => { const c = info.getCell(i + 1, 1); c.value = t; c.font = { name: "Arial", bold, size: bold ? 14 : 11 }; c.alignment = { wrapText: true, vertical: "top" }; });
+    return wb;
+  }
+
+  // ---------- validation / payload ----------
+  function validate(list) {
+    const seen = new Map(); const problems = [];
+    list.forEach((r, i) => {
+      const errs = [];
+      if (!String(r.name || "").trim()) errs.push("Ticket title is required.");
+      else if (String(r.name).trim().length < 6) errs.push("Title is too short to be useful.");
+      if (!r.projectId) errs.push("Project is required.");
+      Object.entries(r._hint || {}).forEach(([k, h]) => { if (h && h.cls === "bad" && (k !== "assignedUserId" || !r.assignedUserId) && (k !== "columnId" || !r.columnId) && (k !== "projectId" || !r.projectId)) errs.push(h.text + "."); });
+      if (r.columnId && r.projectId && ref.columnsByProject[r.projectId] && !ref.columnsByProject[r.projectId].some((c) => c.id === r.columnId)) errs.push("That status does not exist on this project's board.");
+      ref.fields.filter((f) => f.required && visibleCols.has(f.key)).forEach((f) => { if (r[f.key] === undefined || r[f.key] === "" || r[f.key] === null) errs.push(f.label + " is required."); });
+      const key = r.projectId + "|" + norm(r.name);
+      if (r.name && r.projectId) { if (seen.has(key)) errs.push("Same title as row " + (seen.get(key) + 1) + " in the same project."); else seen.set(key, i); }
+      r._errs = errs; if (errs.length) problems.push(i);
+    });
+    return problems;
+  }
+  function payloadFor(r) {
+    const p = { name: String(r.name).trim(), projectId: r.projectId, projectName: (ref.projects.find((x) => x.id === r.projectId) || {}).name };
+    if (r.assignedUserId) { p.assignedUserId = r.assignedUserId; p.assignedUserName = (ref.users.find((x) => x.id === r.assignedUserId) || {}).name; }
+    if (r.columnId) { p.columnId = r.columnId; p.columnName = (columnsFor(r.projectId).find((c) => c.id === r.columnId) || {}).name; }
+    if (String(r.description || "").trim()) p.description = String(r.description).trim();
+    ref.fields.forEach((f) => { if (visibleCols.has(f.key) && r[f.key] !== undefined && r[f.key] !== "" && r[f.key] !== null) p[f.key] = f.type === "int" ? parseInt(r[f.key], 10) : f.type === "float" ? parseFloat(r[f.key]) : r[f.key]; });
+    return p;
+  }
+
+  // ---------- rendering: grid ----------
+  function optionsHtml(items, value, blank) { return '<option value="">' + esc(blank) + "</option>" + items.map((i) => '<option value="' + esc(i.id) + '"' + (i.id === value ? " selected" : "") + ">" + esc(i.name) + "</option>").join(""); }
+  function renderHead() {
+    const cols = allCols().filter((c) => visibleCols.has(c.key));
+    $("headRow").innerHTML = '<th></th><th>#</th>' + cols.map((c) => '<th class="' + c.cls + '">' + esc(c.label) + (c.required ? ' <span class="req">*</span>' : "") + "</th>").join("") + "<th></th>";
+  }
+  function cellHtml(r, c) {
+    const h = r._hint && r._hint[c.key]; const hint = h ? '<div class="hint ' + h.cls + '">' + esc(h.text) + "</div>" : "";
+    const d = "data-k=\"" + c.key + "\"";
+    if (c.key === "projectId") return '<select ' + d + ">" + optionsHtml(ref.projects, r.projectId, "Select project…") + "</select>" + hint;
+    if (c.key === "assignedUserId") return '<select ' + d + ">" + optionsHtml(ref.users, r.assignedUserId, "Unassigned") + "</select>" + hint;
+    if (c.key === "columnId") return '<select ' + d + ">" + optionsHtml(columnsFor(r.projectId), r.columnId, "Default status") + "</select>" + hint;
+    if (c.key === "description" || c.type === "text") return '<textarea ' + d + ' rows="1" placeholder="What needs to be done, and how will we know it is done?">' + esc(r[c.key]) + "</textarea>" + hint;
+    if (c.type === "enum" && c.options) return '<select ' + d + ">" + optionsHtml(c.options.map((o) => ({ id: o, name: (ref.options[c.key] || {})[o] || o })), r[c.key], "—") + "</select>" + hint;
+    if (c.type === "bool") return '<select ' + d + '><option value="">—</option><option value="true"' + (r[c.key] === true ? " selected" : "") + '>Yes</option><option value="false"' + (r[c.key] === false ? " selected" : "") + ">No</option></select>" + hint;
+    if (c.type === "date") return '<input ' + d + ' type="date" value="' + esc(r[c.key] || "") + '">' + hint;
+    if (c.type === "datetime") return '<input ' + d + ' type="datetime-local" value="' + esc(r[c.key] || "") + '">' + hint;
+    if (c.type === "int" || c.type === "float") return '<input ' + d + ' type="number" step="' + (c.type === "int" ? "1" : "0.5") + '" value="' + esc(r[c.key] ?? "") + '">' + hint;
+    return '<input ' + d + ' value="' + esc(r[c.key] ?? "") + '" placeholder="' + (c.key === "name" ? "Short, specific title" : "") + '">' + hint;
+  }
+  function renderRows() {
+    const cols = allCols().filter((c) => visibleCols.has(c.key));
+    const f = norm($("filter").value);
+    const tb = $("rows"); tb.innerHTML = "";
+    if (!rows.length) { tb.innerHTML = '<tr class="dropzone"><td colspan="' + (cols.length + 3) + '">No tickets yet. Add a row, paste from a sheet, or drop an Excel file here.</td></tr>'; updateSummary(); return; }
+    rows.forEach((r, i) => {
+      if (f && !norm(r.name + " " + r.description + " " + (ref.projects.find((p) => p.id === r.projectId) || {}).name + " " + (ref.users.find((u) => u.id === r.assignedUserId) || {}).name).includes(f)) return;
+      const tr = document.createElement("tr"); tr.dataset.id = r._id; tr.className = (r._errs && r._errs.length ? "bad " : "") + (r._sel ? "sel " : "");
+      tr.innerHTML = '<td class="ck"><input type="checkbox"' + (r._sel ? " checked" : "") + ' aria-label="Select row"></td><td class="n">' + (i + 1) + "</td>" + cols.map((c) => '<td class="cell ' + c.cls + '">' + cellHtml(r, c) + (c.key === "name" && r._errs && r._errs.length ? '<div class="hint bad">' + esc(r._errs[0]) + (r._errs.length > 1 ? " (+" + (r._errs.length - 1) + " more)" : "") + "</div>" : "") + "</td>").join("") +
+        '<td class="act"><button class="btn ghost icon dup" title="Duplicate row">' + ICON.copy + '</button><button class="btn ghost icon del" title="Delete row">' + ICON.trash + "</button></td>";
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll("textarea").forEach(autoGrow);
+    updateSummary();
+  }
+  function autoGrow(t) { t.style.height = "auto"; t.style.height = Math.min(220, Math.max(36, t.scrollHeight)) + "px"; }
+  function updateSummary() {
+    const n = rows.length, bad = rows.filter((r) => r._errs && r._errs.length).length, una = rows.filter((r) => !r.assignedUserId).length;
+    $("sumLine").textContent = n ? n + " ticket" + (n === 1 ? "" : "s") + (una ? " · " + una + " unassigned" : "") + (bad ? " · " + bad + " with problems" : "") : "";
+    $("reviewBtn").disabled = !n;
+    const sel = rows.filter((r) => r._sel).length; $("selCount").textContent = sel; $("bulk").classList.toggle("on", sel > 0);
+  }
+  function rowOf(el) { const tr = el.closest("tr"); return tr && rows.find((r) => r._id === tr.dataset.id); }
+  function setField(r, k, v) {
+    const c = colByKey(k);
+    if (c && c.type === "bool") r[k] = v === "" ? "" : v === "true";
+    else r[k] = v;
+    if (r._hint) delete r._hint[k];
+    if (k === "projectId") { // status list depends on the project
+      const tr = $("rows").querySelector('tr[data-id="' + r._id + '"]'); const st = tr && tr.querySelector('select[data-k="columnId"]');
+      if (st) { const cols = columnsFor(v); if (!cols.some((x) => x.id === r.columnId)) r.columnId = ""; st.innerHTML = optionsHtml(cols, r.columnId, "Default status"); }
+    }
+    if (r._errs && r._errs.length) { validate(rows); const tr = $("rows").querySelector('tr[data-id="' + r._id + '"]'); if (tr) tr.classList.toggle("bad", !!r._errs.length); }
+    saveDraft();
+  }
+
+  // ---------- rendering: review ----------
+  function renderReview() {
+    const list = rows;
+    const projects = new Set(list.map((r) => r.projectId)), users = new Set(list.filter((r) => r.assignedUserId).map((r) => r.assignedUserId));
+    const una = list.filter((r) => !r.assignedUserId).length, noDesc = list.filter((r) => !String(r.description || "").trim()).length, withStatus = list.filter((r) => r.columnId).length;
+    $("tiles").innerHTML = [["Tickets", list.length, "will be created"], ["Projects", projects.size, [...projects].slice(0, 2).map((p) => (ref.projects.find((x) => x.id === p) || {}).name).join(", ") + (projects.size > 2 ? " +" + (projects.size - 2) : "")], ["People", users.size, una ? una + " ticket" + (una === 1 ? "" : "s") + " unassigned" : "every ticket assigned"], ["Descriptions", list.length - noDesc, noDesc ? noDesc + " empty" : "all filled"]]
+      .map(([k, v, s]) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + esc(s) + "</div></div>").join("");
+    const plan = [];
+    plan.push(["check", "Create <b>" + list.length + "</b> ProjectTask record" + (list.length === 1 ? "" : "s") + " in TMS under your account (" + esc(tms.user.name) + ")."]);
+    plan.push(["arrow", withStatus ? withStatus + " start in the status you chose; the rest land in each project's default column." : "All tickets land in each project's default column."]);
+    if (users.size) plan.push(["user", "Assign " + (list.length - una) + " ticket" + (list.length - una === 1 ? "" : "s") + " to " + users.size + " " + (users.size === 1 ? "person" : "people") + ". TMS notifies assignees as it normally does."]);
+    if (una) plan.push(["warn", una + " ticket" + (una === 1 ? "" : "s") + " will be created <b>unassigned</b>."]);
+    if (noDesc) plan.push(["warn", noDesc + " ticket" + (noDesc === 1 ? " has" : "s have") + " no description. Developers will only see the title."]);
+    plan.push(["check", "Nothing is deleted or changed; existing tickets are untouched. Each created ticket is listed with a link afterwards."]);
+    $("plan").innerHTML = plan.map(([ic, html]) => '<li class="' + (ic === "warn" ? "warn" : "") + '">' + ICON[ic] + "<span>" + html + "</span></li>").join("");
+    const byP = {}; list.forEach((r) => { (byP[r.projectId] = byP[r.projectId] || []).push(r); });
+    $("groups").innerHTML = Object.entries(byP).map(([pid, rs]) => {
+      const pname = (ref.projects.find((x) => x.id === pid) || {}).name || pid;
+      return '<div class="card group" style="margin-bottom:12px"><div class="gh"><h3>' + esc(pname) + '</h3><span class="cnt">' + rs.length + " ticket" + (rs.length === 1 ? "" : "s") + '</span></div><table class="rtable"><thead><tr><th>Ticket</th><th>Assign to</th><th>Status</th><th>Extra</th></tr></thead><tbody>' +
+        rs.map((r) => { const u = ref.users.find((x) => x.id === r.assignedUserId); const c = columnsFor(r.projectId).find((x) => x.id === r.columnId); const extra = ref.fields.filter((f) => visibleCols.has(f.key) && r[f.key] !== undefined && r[f.key] !== "" && r[f.key] !== null).map((f) => f.label + ": " + (f.type === "enum" ? ((ref.options[f.key] || {})[r[f.key]] || r[f.key]) : f.type === "bool" ? (r[f.key] ? "Yes" : "No") : r[f.key])).join(" · ");
+          return "<tr" + (r._dup ? ' class="dup"' : "") + "><td><b>" + esc(r.name) + "</b>" + (r._dup ? ' <span class="pill warn">already in TMS: ' + esc(r._dup.name) + "</span>" : "") + (String(r.description || "").trim() ? '<div class="desc">' + esc(r.description) + "</div>" : '<div class="desc"><i>No description</i></div>') + "</td><td>" + (u ? esc(u.name) : '<span class="pill warn">Unassigned</span>') + "</td><td>" + (c ? esc(c.name) : '<span class="muted">Default</span>') + "</td><td class=\"muted\">" + esc(extra || "—") + "</td></tr>"; }).join("") + "</tbody></table></div>";
+    }).join("");
+    $("confirmCount").textContent = list.length; $("reviewErr").textContent = ""; $("dupStatus").textContent = "";
+  }
+  async function checkDuplicates() {
+    $("dupStatus").innerHTML = '<span class="spin"></span> Checking…'; let found = 0;
+    try {
+      const byP = {}; rows.forEach((r) => { (byP[r.projectId] = byP[r.projectId] || []).push(r); });
+      for (const [pid, rs] of Object.entries(byP)) {
+        const params = { select: "name,projectId,assignedUserName,columnName", "where[0][type]": "equals", "where[0][attribute]": "projectId", "where[0][value]": pid, "where[1][type]": "in", "where[1][attribute]": "name" };
+        rs.forEach((r, i) => { params["where[1][value][" + i + "]"] = String(r.name).trim(); });
+        const existing = await tms.list("ProjectTask", params);
+        rs.forEach((r) => { const hit = existing.find((t) => norm(t.name) === norm(r.name)); r._dup = hit ? { id: hit.id, name: hit.name } : null; if (hit) found++; });
+      }
+      renderReview();
+      $("dupStatus").textContent = found ? found + " ticket" + (found === 1 ? " already exists" : "s already exist") + " with the same title. They are marked below; go back to remove them if they are duplicates." : "No ticket with these titles exists yet.";
+    } catch (e) { $("dupStatus").textContent = "Could not check: " + e.message; }
+  }
+
+  // ---------- creation ----------
+  let results = [];
+  async function createAll(onlyFailed) {
+    const todo = onlyFailed ? results.filter((x) => !x.ok) : rows.map((r) => ({ row: r, ok: false, id: null, error: null }));
+    if (!onlyFailed) results = todo;
+    show("results"); $("resActions").hidden = true; $("retryBtn").hidden = true; $("resTitle").textContent = "Creating tickets…";
+    renderResults();
+    let done = 0;
+    for (const item of todo) {
+      item.error = null; renderResults(item);
+      try { const created = await tms.req("POST", "ProjectTask", payloadFor(item.row)); item.ok = true; item.id = created && created.id; item.row._done = item.id; item.number = created && created.number; }
+      catch (e) { item.ok = false; item.error = e.status === 403 ? "TMS refused: your account cannot create tickets in this project." : e.message; }
+      done++; $("bar").style.width = Math.round((done / todo.length) * 100) + "%"; $("resCount").textContent = done + " / " + todo.length; renderResults();
+    }
+    const okN = results.filter((x) => x.ok).length, badN = results.length - okN;
+    $("resTitle").textContent = badN ? okN + " created, " + badN + " failed" : okN + " ticket" + (okN === 1 ? "" : "s") + " created";
+    $("resActions").hidden = false; $("retryBtn").hidden = !badN;
+    if (!badN) { store.del("tl.draft"); setStep(3); }
+  }
+  function renderResults(active) {
+    $("resRows").innerHTML = results.map((x, i) => { const r = x.row; const p = (ref.projects.find((y) => y.id === r.projectId) || {}).name || ""; const u = (ref.users.find((y) => y.id === r.assignedUserId) || {}).name || "—";
+      const res = x.ok ? '<a href="' + esc(tms.ticketUrl(x.id)) + '" target="_blank" rel="noopener" class="pill ok">' + ICON.check + " Created" + (x.number ? " #" + esc(x.number) : "") + "</a>" : x.error ? '<span class="pill bad">' + esc(x.error) + "</span>" : x === active ? '<span class="spin"></span>' : '<span class="muted">Waiting</span>';
+      return "<tr><td class=\"muted num\">" + (i + 1) + "</td><td><b>" + esc(r.name) + "</b></td><td>" + esc(p) + "</td><td>" + esc(u) + "</td><td>" + res + "</td></tr>"; }).join("");
+  }
+  function resultsCsv() { const q = (s) => '"' + String(s ?? "").replace(/"/g, '""') + '"'; return ["Ticket,Project,Assigned to,Status,Result,Link"].concat(results.map((x) => { const r = x.row; return [r.name, (ref.projects.find((y) => y.id === r.projectId) || {}).name, (ref.users.find((y) => y.id === r.assignedUserId) || {}).name || "", (columnsFor(r.projectId).find((c) => c.id === r.columnId) || {}).name || "", x.ok ? "Created" : "Failed: " + (x.error || ""), x.ok ? tms.ticketUrl(x.id) : ""].map(q).join(","); })).join("\r\n"); }
+
+  // ---------- navigation ----------
+  function setStep(n) { document.querySelectorAll(".step").forEach((s) => { const k = +s.dataset.s; s.classList.toggle("on", k === n); s.classList.toggle("done", k < n); }); }
+  function show(which) { ["signin", "edit", "review", "results"].forEach((id) => { $(id).hidden = id !== which; }); setStep(which === "edit" ? 1 : which === "review" ? 2 : which === "results" ? 2 : 1); }
+  function fillBulk() { $("bulkProject").innerHTML = optionsHtml(ref.projects, "", "Set project…"); $("bulkUser").innerHTML = optionsHtml(ref.users, "", "Assign to…") + '<option value="__none">Unassign</option>'; $("bulkStatus").innerHTML = optionsHtml(ref.allColumns, "", "Set status…") + '<option value="__none">Default status</option>'; }
+  function renderColsPop() { $("colsPop").innerHTML = "<h3>Columns</h3>" + allCols().map((c) => '<label class="ck"><input type="checkbox" data-k="' + c.key + '"' + (visibleCols.has(c.key) ? " checked" : "") + (c.core && c.required ? " disabled" : "") + "> " + esc(c.label) + (c.required ? ' <span class="pill bad">required</span>' : "") + (c.core ? "" : ' <span class="muted mono">' + esc(c.type) + "</span>") + "</label>").join("") + (ref.fields.length ? "" : '<p class="muted" style="margin-top:6px">No extra fields were found on the TMS ticket form.</p>'); }
+
+  async function afterLogin() {
+    $("who").hidden = false; $("whoName").textContent = tms.user.name; $("avatar").textContent = (tms.user.name || "?").split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+    show("edit"); $("rows").innerHTML = '<tr class="dropzone"><td colspan="8"><span class="spin"></span> Loading people, projects and ticket fields from TMS…</td></tr>';
+    try { await loadReference((m) => { const c = $("rows").querySelector("td"); if (c) c.innerHTML = '<span class="spin"></span> ' + esc(m); }); }
+    catch (e) { toast("Could not load reference data: " + e.message); }
+    const restored = restoreDraft(); $("draftNote").hidden = !restored;
+    if (!rows.length) rows = [newRow()];
+    // rows restored from a draft may carry hints for ids that resolved; re-validate quietly
+    renderHead(); fillBulk(); renderColsPop(); renderRows();
+    if (!ref.projects.length) toast("No projects could be read from TMS. Check that your account can see projects.");
+  }
+
+  // ---------- events ----------
+  $("loginForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); $("loginErr").textContent = ""; $("loginBtn").disabled = true; $("loginBusy").hidden = false;
+    try { await tms.login($("base").value.trim() || "https://tms.nupipay.com", $("user").value.trim(), $("pass").value); $("pass").value = ""; await afterLogin(); }
+    catch (e) { $("loginErr").textContent = e.message; }
+    finally { $("loginBtn").disabled = false; $("loginBusy").hidden = true; }
+  });
+  $("signOut").addEventListener("click", async () => { await tms.logout(); $("who").hidden = true; show("signin"); });
+  $("addRow").addEventListener("click", () => { rows.push(newRow({ projectId: rows.length ? rows[rows.length - 1].projectId : "" })); renderRows(); saveDraft(); const last = $("rows").querySelector("tr:last-child input[data-k=name]"); if (last) last.focus(); });
+  $("addFive").addEventListener("click", () => { for (let i = 0; i < 5; i++) rows.push(newRow({ projectId: rows.length ? rows[rows.length - 1].projectId : "" })); renderRows(); saveDraft(); });
+  $("clearAll").addEventListener("click", () => { if (!rows.length) return; const n = rows.length; rows = [newRow()]; renderRows(); store.del("tl.draft"); toast("Cleared " + n + " row" + (n === 1 ? "" : "s")); });
+  $("dropDraft").addEventListener("click", () => { rows = [newRow()]; store.del("tl.draft"); $("draftNote").hidden = true; renderRows(); });
+  $("filter").addEventListener("input", renderRows);
+  $("colsBtn").addEventListener("click", () => { renderColsPop(); $("colsPop").hidden = !$("colsPop").hidden; });
+  $("colsPop").addEventListener("change", (ev) => { const k = ev.target.dataset.k; if (!k) return; if (ev.target.checked) visibleCols.add(k); else visibleCols.delete(k); renderHead(); renderRows(); saveDraft(); });
+  document.addEventListener("mousedown", (ev) => { if (!ev.target.closest(".anchor")) $("colsPop").hidden = true; });
+  // grid editing (delegated)
+  $("rows").addEventListener("input", (ev) => { const r = rowOf(ev.target); const k = ev.target.dataset.k; if (!r || !k) return; if (ev.target.tagName === "TEXTAREA") autoGrow(ev.target); if (ev.target.tagName !== "SELECT") setField(r, k, ev.target.value); });
+  $("rows").addEventListener("change", (ev) => { const r = rowOf(ev.target); if (!r) return; if (ev.target.type === "checkbox" && ev.target.closest(".ck")) { r._sel = ev.target.checked; ev.target.closest("tr").classList.toggle("sel", r._sel); updateSummary(); return; } const k = ev.target.dataset.k; if (k) { setField(r, k, ev.target.value); const hint = ev.target.parentElement.querySelector(".hint.bad, .hint.warn"); if (hint && !ev.target.classList.contains("name")) hint.remove(); } });
+  $("rows").addEventListener("click", (ev) => { const b = ev.target.closest("button"); const r = rowOf(ev.target); if (!b || !r) return; const i = rows.indexOf(r); if (b.classList.contains("del")) rows.splice(i, 1); else if (b.classList.contains("dup")) { const c = newRow(Object.assign({}, r, { _id: undefined, _sel: false, _done: null, _errs: [] })); c._id = uid(); rows.splice(i + 1, 0, c); } renderRows(); saveDraft(); });
+  $("rows").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.matches("input[data-k=name]") && !ev.shiftKey) { ev.preventDefault(); const r = rowOf(ev.target); const i = rows.indexOf(r); if (i === rows.length - 1) { rows.push(newRow({ projectId: r.projectId })); renderRows(); saveDraft(); } const next = $("rows").querySelectorAll("input[data-k=name]")[i + 1]; if (next) next.focus(); } });
+  // bulk
+  const selRows = () => rows.filter((r) => r._sel);
+  $("bulkProject").addEventListener("change", (ev) => { if (!ev.target.value) return; selRows().forEach((r) => { r.projectId = ev.target.value; if (!columnsFor(r.projectId).some((c) => c.id === r.columnId)) r.columnId = ""; delete r._hint.projectId; }); ev.target.value = ""; renderRows(); saveDraft(); });
+  $("bulkUser").addEventListener("change", (ev) => { if (!ev.target.value) return; selRows().forEach((r) => { r.assignedUserId = ev.target.value === "__none" ? "" : ev.target.value; delete r._hint.assignedUserId; }); ev.target.value = ""; renderRows(); saveDraft(); });
+  $("bulkStatus").addEventListener("change", (ev) => { if (!ev.target.value) return; selRows().forEach((r) => { r.columnId = ev.target.value === "__none" ? "" : ev.target.value; delete r._hint.columnId; }); ev.target.value = ""; renderRows(); saveDraft(); });
+  $("bulkDel").addEventListener("click", () => { rows = rows.filter((r) => !r._sel); if (!rows.length) rows = [newRow()]; renderRows(); saveDraft(); });
+  $("bulkDup").addEventListener("click", () => { const copies = selRows().map((r) => { const c = newRow(Object.assign({}, r, { _sel: false, _done: null, _errs: [] })); c._id = uid(); return c; }); rows.forEach((r) => { r._sel = false; }); rows = rows.concat(copies); renderRows(); saveDraft(); });
+  $("bulkNone").addEventListener("click", () => { rows.forEach((r) => { r._sel = false; }); renderRows(); });
+  // paste + drop + file
+  function absorb(imported, source) {
+    if (!imported.rows.length) { toast("Nothing usable found in " + source + "."); return; }
+    if (rows.length === 1 && !rows[0].name && !rows[0].description) rows = [];
+    rows = rows.concat(imported.rows); renderHead(); renderRows(); saveDraft(); validate(rows); renderRows();
+    const unresolved = imported.rows.filter((r) => Object.values(r._hint || {}).some((h) => h && h.cls === "bad")).length;
+    toast("Added " + imported.rows.length + " row" + (imported.rows.length === 1 ? "" : "s") + " from " + source + (unresolved ? "; " + unresolved + " need a person, project or status fixed" : "") + (imported.unmapped.length ? "; ignored columns: " + imported.unmapped.join(", ") : ""));
+  }
+  document.addEventListener("paste", (ev) => {
+    if ($("edit").hidden) return; const t = ev.target;
+    const text = ev.clipboardData && ev.clipboardData.getData("text/plain"); if (!text) return;
+    const multi = /\n|\t/.test(text.trim());
+    if (!multi) return; // single value: let the input take it
+    if (t && t.matches && t.matches("textarea") && !/\t/.test(text)) return; // multi-line description, no tabs: plain paste
+    ev.preventDefault(); absorb(mapImported(parseDelimited(text)), "the clipboard");
+  });
+  async function importFile(file) {
+    try {
+      if (/\.(xlsx|xls)$/i.test(file.name)) absorb(await importWorkbook(await file.arrayBuffer()), file.name);
+      else absorb(mapImported(parseDelimited(await file.text())), file.name);
+    } catch (e) { toast("Import failed: " + e.message); }
+  }
+  $("fileIn").addEventListener("change", (ev) => { const f = ev.target.files && ev.target.files[0]; if (f) importFile(f); ev.target.value = ""; });
+  const gw = $("gridwrap");
+  ["dragenter", "dragover"].forEach((t) => gw.addEventListener(t, (ev) => { ev.preventDefault(); gw.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach((t) => gw.addEventListener(t, (ev) => { ev.preventDefault(); gw.classList.remove("drag"); }));
+  gw.addEventListener("drop", (ev) => { const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) importFile(f); });
+  // template download
+  $("dlTemplate").addEventListener("click", async () => {
+    const b = $("dlTemplate"); b.disabled = true;
+    try {
+      if (!window.ExcelJS) throw new Error("The Excel library did not load; reload the page.");
+      const wb = await buildTemplate(); const buf = await wb.xlsx.writeBuffer();
+      await saveFile("NUPI Ticket Import Template.xlsx", new Blob([buf])); toast("Template saved. Lists inside it are live from TMS as of today.");
+    } catch (e) { if (e && e.code === "declined") return; toast("Could not save the template: " + (e.message || e.code || e)); }
+    finally { b.disabled = false; }
+  });
+  // Sample sheet shipped inside the page: byte-for-byte the repo's template/NUPI Ticket Import Template.xlsx (base64).
+  const SAMPLE_XLSX_B64 = "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";
+  function sampleBlob() { const bin = atob(SAMPLE_XLSX_B64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new Blob([bytes]); }
+  document.querySelectorAll(".dlSample").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      await saveFile("NUPI Ticket Import Template (sample).xlsx", sampleBlob()); toast("Sample sheet saved. Names in it are placeholders; download the template after sign-in for live lists.");
+    } catch (e) { if (e && e.code === "declined") return; toast("Could not get the sample sheet: " + (e.message || e.code || e)); }
+    finally { b.disabled = false; }
+  }));
+  // review / confirm
+  $("reviewBtn").addEventListener("click", () => {
+    rows = rows.filter((r) => r.name || r.description || r.projectId); if (!rows.length) rows = [newRow()];
+    const problems = validate(rows); renderRows();
+    if (problems.length) { $("editErr").textContent = problems.length + " row" + (problems.length === 1 ? " needs" : "s need") + " fixing before review (marked in red)."; const tr = $("rows").querySelector("tr.bad"); if (tr && tr.scrollIntoView) tr.scrollIntoView({ block: "center" }); return; }
+    $("editErr").textContent = ""; rows.forEach((r) => { r._dup = null; }); renderReview(); show("review"); window.scrollTo({ top: 0 });
+  });
+  $("backBtn").addEventListener("click", () => { show("edit"); renderRows(); });
+  $("dupCheck").addEventListener("click", checkDuplicates);
+  $("confirmBtn").addEventListener("click", async () => { $("confirmBtn").disabled = true; try { await createAll(false); } finally { $("confirmBtn").disabled = false; } });
+  $("retryBtn").addEventListener("click", () => createAll(true));
+  $("newBatch").addEventListener("click", () => { rows = [newRow()]; results = []; store.del("tl.draft"); renderRows(); show("edit"); });
+  $("copyBtn").addEventListener("click", async () => { const txt = resultsCsv().replace(/","/g, '"\t"').replace(/^"|"$/gm, "").replace(/"\t"/g, "\t"); try { await navigator.clipboard.writeText(txt); toast("Copied " + results.length + " rows."); } catch { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); toast("Press Ctrl/Cmd+C to copy."); } });
+  $("exportBtn").addEventListener("click", async () => { try { await saveFile("tms-created-tickets-" + new Date().toISOString().slice(0, 10) + ".csv", resultsCsv()); } catch (e) { if (e && e.code !== "declined") toast("Could not save: " + (e.message || e.code)); } });
+  $("saveApp").addEventListener("click", async () => { try { await saveFile("NUPI Ticket Loader.html", SOURCE_HTML); toast("Saved. Open “NUPI Ticket Loader.html” from your Downloads folder and sign in there."); } catch (e) { if (e && e.code !== "declined") toast("Could not save: " + (e.message || e.code)); } });
+
+  // ---------- boot ----------
+  $("sandboxNote").hidden = !IN_SANDBOX;
+  if (IN_SANDBOX) { $("loginBtn").textContent = "Sign in (only works from the saved file)"; }
+  if (!IN_SANDBOX && tms.restore()) { afterLogin(); } else { show("signin"); const u = store.get("tl.user"); if (u) $("user").value = u; }
+  $("loginForm").addEventListener("submit", () => store.set("tl.user", $("user").value.trim()));
+
+  // Exposed for the headless test harness.
+  window.TL = { tms, ref, IN_SANDBOX, saveFile, get rows() { return rows; }, set rows(v) { rows = v; }, visibleCols, newRow, matchName, parseDelimited, mapImported, importWorkbook, buildTemplate, validate, payloadFor, headerToKey, renderRows, renderHead, afterLogin, resultsCsv, get results() { return results; } };
+})();
+</script>
+</body>
+</html>
