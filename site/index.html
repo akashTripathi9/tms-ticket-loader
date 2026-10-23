@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>NUPI Ticket Loader</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working surface (a grid of tickets) with a slim top bar; review and results replace the grid in place. */
+:root {
+  --bg: #f6f7f4; --surface: #ffffff; --surface-2: #eef1ec; --surface-3: #e3e8e1;
+  --fg: #1b2420; --muted: #5d6a63; --border: #d8ded6; --border-strong: #b9c3b9;
+  --accent: #0e7c6b; --accent-fg: #ffffff; --accent-soft: #d9efe9; --accent-ring: rgba(14,124,107,.28);
+  --ok: #1d7a3a; --ok-soft: #dcf2e2; --warn: #9a6200; --warn-soft: #fbeed0; --bad: #b3261e; --bad-soft: #f9dcd9; --info: #2456a6; --info-soft: #dde7f7;
+  --display: "Sora", "Avenir Next", "Segoe UI", sans-serif; --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif; --mono: "IBM Plex Mono", "SF Mono", Menlo, monospace;
+  --r: 12px; --r-sm: 8px; --shadow: 0 1px 2px rgba(20,30,25,.06), 0 12px 30px -18px rgba(20,30,25,.35);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121715; --surface: #1a211e; --surface-2: #222b27; --surface-3: #2b3631;
+  --fg: #e7ece8; --muted: #9aa69f; --border: #2c3631; --border-strong: #41504a;
+  --accent: #3fc4ad; --accent-fg: #06201b; --accent-soft: #163d36; --accent-ring: rgba(63,196,173,.3);
+  --ok: #5fd08a; --ok-soft: #173a25; --warn: #f0b64a; --warn-soft: #3e2f10; --bad: #ff8a80; --bad-soft: #4a1f1c; --info: #8db5ff; --info-soft: #1d2d4a;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -18px rgba(0,0,0,.8); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121715; --surface: #1a211e; --surface-2: #222b27; --surface-3: #2b3631;
+  --fg: #e7ece8; --muted: #9aa69f; --border: #2c3631; --border-strong: #41504a;
+  --accent: #3fc4ad; --accent-fg: #06201b; --accent-soft: #163d36; --accent-ring: rgba(63,196,173,.3);
+  --ok: #5fd08a; --ok-soft: #173a25; --warn: #f0b64a; --warn-soft: #3e2f10; --bad: #ff8a80; --bad-soft: #4a1f1c; --info: #8db5ff; --info-soft: #1d2d4a;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 12px 30px -18px rgba(0,0,0,.8); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.45; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h1 { font-size: 1.25rem; } h2 { font-size: 1.1rem; } h3 { font-size: .95rem; }
+p { margin: 0; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: .9em; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* top bar */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--surface); border-bottom: 1px solid var(--border); }
+.top .in { display: flex; align-items: center; gap: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 15px; }
+.brand small { display: block; color: var(--muted); font-size: .78rem; }
+.steps { display: flex; gap: 6px; align-items: center; margin-left: auto; font-size: .82rem; color: var(--muted); flex-wrap: wrap; }
+.step { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); }
+.step i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: .75rem; font-weight: 600; background: var(--surface-3); }
+.step.on { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); }
+.step.on i { background: var(--accent); color: var(--accent-fg); }
+.step.done i { background: var(--ok); color: #fff; }
+.who { display: flex; align-items: center; gap: 10px; font-size: .85rem; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 600; font-size: .8rem; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: var(--r-sm); border: 1px solid transparent; background: var(--accent); color: var(--accent-fg); font-weight: 600; cursor: pointer; white-space: nowrap; line-height: 1.2; transition: filter .15s, transform .1s; }
+.btn:hover { filter: brightness(1.06); } .btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-ring); }
+.btn:disabled { opacity: .5; cursor: default; filter: none; }
+.btn.soft { background: var(--surface-2); color: var(--fg); border-color: var(--border); }
+.btn.ghost { background: transparent; color: var(--fg); border-color: transparent; }
+.btn.ghost:hover { background: var(--surface-2); filter: none; }
+.btn.danger { background: var(--bad-soft); color: var(--bad); }
+.btn.sm { padding: 5px 10px; font-size: .85rem; }
+.btn.xs { padding: 2px 8px; font-size: .8rem; border-radius: 6px; }
+.btn.icon { padding: 5px; width: 30px; height: 30px; justify-content: center; }
+.btn svg { width: 15px; height: 15px; flex: none; }
+
+/* forms */
+.input, .cell input, .cell select, .cell textarea, select.sel, input.inp, textarea.inp { width: 100%; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); padding: 8px 10px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.input:focus, .cell input:focus, .cell select:focus, .cell textarea:focus, select.sel:focus, input.inp:focus, textarea.inp:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+select { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%); background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 28px; }
+label.lbl { display: block; font-size: .8rem; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+.field + .field { margin-top: 14px; }
+.err { color: var(--bad); font-size: .88rem; }
+.note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); font-size: .9rem; }
+.note.warn { background: var(--warn-soft); } .note.bad { background: var(--bad-soft); } .note.info { background: var(--info-soft); } .note.ok { background: var(--ok-soft); }
+.note svg { width: 16px; height: 16px; flex: none; margin-top: 2px; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: .76rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--surface-3); white-space: nowrap; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); } .pill.warn { background: var(--warn-soft); color: var(--warn); } .pill.bad { background: var(--bad-soft); color: var(--bad); } .pill.info { background: var(--info-soft); color: var(--info); } .pill.accent { background: var(--accent-soft); color: var(--accent); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); }
+.spin { width: 14px; height: 14px; border: 2px solid var(--border-strong); border-top-color: var(--accent); border-radius: 50%; display: inline-block; animation: sp .8s linear infinite; vertical-align: -2px; }
+@keyframes sp { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* sign-in */
+.signin { max-width: 440px; margin: 48px auto 0; padding: 26px; }
+.signin h1 { font-size: 1.35rem; margin-bottom: 4px; }
+.signin .lead { color: var(--muted); margin-bottom: 20px; }
+.signin ul { margin: 18px 0 0; padding-left: 18px; color: var(--muted); font-size: .9rem; }
+
+/* toolbar */
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-block: 14px 10px; }
+.toolbar .spacer { flex: 1; }
+.search { position: relative; min-width: 200px; }
+.search input { padding-left: 32px; }
+.search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--muted); }
+.bulk { display: none; gap: 10px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-sm); background: var(--accent-soft); margin-bottom: 10px; font-size: .9rem; }
+.bulk.on { display: flex; }
+.bulk select { width: auto; min-width: 160px; padding: 5px 28px 5px 8px; }
+
+/* grid */
+.gridwrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--r); background: var(--surface); box-shadow: var(--shadow); }
+table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1080px; }
+.grid th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); text-align: left; font-size: .76rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.grid th .req { color: var(--bad); }
+.grid td { padding: 6px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.grid tr:last-child td { border-bottom: none; }
+.grid tr.bad td { background: color-mix(in srgb, var(--bad-soft) 45%, transparent); }
+.grid tr.sel td { background: color-mix(in srgb, var(--accent-soft) 55%, transparent); }
+.grid tr.done td { opacity: .6; }
+.grid td.n { width: 44px; text-align: center; color: var(--muted); font-size: .8rem; padding-top: 14px; font-variant-numeric: tabular-nums; }
+.grid td.ck { width: 34px; padding-top: 13px; }
+.grid td.ck input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+.cell input, .cell select { padding: 7px 9px; }
+.cell select { padding-right: 26px; }
+.cell textarea { min-height: 36px; resize: vertical; padding: 7px 9px; line-height: 1.4; }
+.cell .hint { font-size: .76rem; margin-top: 3px; }
+.cell .hint.bad { color: var(--bad); } .cell .hint.warn { color: var(--warn); } .cell .hint.ok { color: var(--ok); }
+.grid td.act { width: 70px; white-space: nowrap; padding-top: 9px; }
+.grid .dropzone td { padding: 28px; text-align: center; color: var(--muted); }
+.gridwrap.drag { outline: 2px dashed var(--accent); outline-offset: -4px; }
+.col-name { min-width: 240px; } .col-project { min-width: 170px; } .col-user { min-width: 170px; } .col-status { min-width: 150px; } .col-desc { min-width: 260px; } .col-x { min-width: 130px; }
+.footerbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-block: 14px; }
+.footerbar .sum { color: var(--muted); font-size: .9rem; }
+.footerbar .spacer { flex: 1; }
+
+/* popovers */
+.pop { position: absolute; z-index: 20; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r); box-shadow: var(--shadow); padding: 12px; min-width: 260px; }
+.pop h3 { margin-bottom: 8px; }
+.pop label.ck { display: flex; gap: 8px; align-items: center; padding: 5px 2px; font-size: .9rem; cursor: pointer; }
+.pop label.ck input { accent-color: var(--accent); }
+.anchor { position: relative; }
+
+/* review */
+.review { display: grid; gap: 16px; padding-block: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { padding: 12px 14px; border-radius: var(--r-sm); background: var(--surface-2); }
+.tile .k { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.tile .v { font-family: var(--display); font-size: 1.5rem; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.tile .s { font-size: .82rem; color: var(--muted); }
+.plan { border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 0 var(--r-sm) var(--r-sm) 0; background: var(--accent-soft); }
+.plan h3 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 8px; }
+.plan ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.plan li { display: flex; gap: 8px; align-items: flex-start; }
+.plan li svg { width: 15px; height: 15px; flex: none; margin-top: 2px; color: var(--accent); }
+.plan li.warn svg { color: var(--warn); }
+.group { overflow: hidden; }
+.group .gh { display: flex; gap: 10px; align-items: center; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.group .gh .cnt { margin-left: auto; color: var(--muted); font-size: .85rem; }
+.rtable { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.rtable th { text-align: left; font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.rtable td { padding: 8px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.rtable tr:last-child td { border-bottom: none; }
+.rtable .desc { color: var(--muted); font-size: .85rem; white-space: pre-wrap; max-width: 520px; }
+.progress { height: 8px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; font-size: .9rem; box-shadow: var(--shadow); z-index: 30; max-width: 90vw; }
+@media (max-width: 640px) { .steps { display: none; } .signin { margin-top: 20px; padding: 20px; } }
+</style>
+
+<div class="top"><div class="in">
+  <div class="brand"><div class="mark">T</div><div><h1>NUPI Ticket Loader</h1><small>Bulk ticket creation for TMS</small></div></div>
+  <div class="steps" id="steps"><span class="step on" data-s="1"><i>1</i>Tickets</span><span class="step" data-s="2"><i>2</i>Review</span><span class="step" data-s="3"><i>3</i>Created</span></div>
+  <div class="who" id="who" hidden><span class="avatar" id="avatar">?</span><span id="whoName"></span><button class="btn ghost sm" id="signOut">Sign out</button></div>
+</div></div>
+
+<div class="wrap">
+
+<!-- sign in -->
+<section class="card signin" id="signin">
+  <div class="note warn" id="sandboxNote" hidden style="margin-bottom:18px;flex-direction:column;gap:10px">
+    <div style="display:flex;gap:10px;align-items:flex-start"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2 1.5 13.5h13L8 2zM8 6.5v3.5M8 11.8v.4"/></svg><div><b>Use the website, not this preview.</b> Pages inside claude.ai are not allowed to contact other servers, so sign-in cannot work from here. The same app is hosted at <a href="https://akashtripathi9.github.io/tms-ticket-loader/" target="_blank" rel="noopener"><b>akashtripathi9.github.io/tms-ticket-loader</b></a>. Bookmark that address.</div></div>
+    <div class="actions"><a class="btn" href="https://akashtripathi9.github.io/tms-ticket-loader/" target="_blank" rel="noopener">Open the website</a><button class="btn soft sm" id="saveApp" type="button">Or save an offline copy</button></div>
+  </div>
+  <h1>Sign in to TMS</h1>
+  <p class="lead">Use the same username and password as tms.nupipay.com. Tickets are created under your account, so only people allowed to create tickets should use this page.</p>
+  <form id="loginForm">
+    <div class="field"><label class="lbl" for="user">Username</label><input class="input" id="user" autocomplete="username" required></div>
+    <div class="field"><label class="lbl" for="pass">Password</label><input class="input" id="pass" type="password" autocomplete="current-password" required></div>
+    <div class="field"><label class="lbl" for="base">TMS address</label><input class="input mono" id="base" value="https://tms.nupipay.com"></div>
+    <div class="field err" id="loginErr"></div>
+    <div class="field actions"><button class="btn" id="loginBtn" type="submit">Sign in</button><span class="muted" id="loginBusy" hidden><span class="spin"></span> Signing in…</span></div>
+  </form>
+  <div class="note" style="margin-top:18px"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 2.5h7l3 3v8H3z"/><path d="M10 2.5v3h3M5.5 9h5M5.5 11.5h5"/></svg><span style="flex:1">Want to prepare tickets first? The import sheet has the right columns and example rows. After sign-in the same sheet comes with live dropdowns of your people and projects.</span><button class="btn xs soft dlSample" type="button">Get sample sheet</button></div>
+  <ul>
+    <li>Your password is only sent to TMS to get a session token. The token stays in this browser tab.</li>
+    <li>Users, projects, statuses and ticket fields are read from TMS after sign-in, so every dropdown is live.</li>
+  </ul>
+</section>
+
+<!-- step 1: grid -->
+<section id="edit" hidden>
+  <div class="toolbar">
+    <button class="btn" id="addRow">+ Add ticket</button>
+    <button class="btn soft" id="addFive">+ 5 rows</button>
+    <label class="btn soft" for="fileIn" style="cursor:pointer">Import Excel / CSV<input id="fileIn" type="file" accept=".xlsx,.xls,.csv,.tsv,.txt" hidden></label>
+    <button class="btn soft" id="dlTemplate" title="Excel template with live dropdowns for assignee, project and status">Download template</button>
+    <button class="btn ghost sm dlSample" title="Offline sample of the import sheet with placeholder names">Sample sheet</button>
+    <div class="anchor"><button class="btn soft" id="colsBtn">Columns</button><div class="pop" id="colsPop" hidden></div></div>
+    <span class="spacer"></span>
+    <div class="search"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg><input class="inp" id="filter" placeholder="Filter rows…"></div>
+    <button class="btn ghost sm" id="clearAll">Clear all</button>
+  </div>
+  <div class="note info" id="draftNote" hidden><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.5"/><path d="M8 7v4M8 5v.5"/></svg><span class="grow">An unfinished batch from earlier was restored from this browser.</span><button class="btn xs soft" id="dropDraft">Discard it</button></div>
+  <div class="bulk" id="bulk">
+    <strong><span id="selCount">0</span> selected</strong>
+    <select class="sel" id="bulkProject"><option value="">Set project…</option></select>
+    <select class="sel" id="bulkUser"><option value="">Assign to…</option></select>
+    <select class="sel" id="bulkStatus"><option value="">Set status…</option></select>
+    <button class="btn sm soft" id="bulkDup">Duplicate</button>
+    <button class="btn sm danger" id="bulkDel">Delete</button>
+    <button class="btn sm ghost" id="bulkNone">Deselect</button>
+  </div>
+  <div class="gridwrap" id="gridwrap">
+    <table class="grid" id="grid"><thead><tr id="headRow"></tr></thead><tbody id="rows"></tbody></table>
+  </div>
+  <p class="muted" style="margin-top:8px;font-size:.85rem">Tip: copy rows from Excel or Google Sheets and paste anywhere on the grid. A first row of headings is recognised. Names of people and projects are matched to TMS automatically.</p>
+  <div class="footerbar">
+    <span class="sum" id="sumLine"></span>
+    <span class="spacer"></span>
+    <span class="err" id="editErr"></span>
+    <button class="btn" id="reviewBtn">Review <span aria-hidden="true">→</span></button>
+  </div>
+</section>
+
+<!-- step 2: review -->
+<section id="review" class="review" hidden>
+  <div class="tiles" id="tiles"></div>
+  <div class="plan"><h3>What will happen when you confirm</h3><ul id="plan"></ul></div>
+  <div class="actions"><button class="btn soft sm" id="dupCheck">Check TMS for tickets with the same name</button><span class="muted" id="dupStatus"></span></div>
+  <div id="groups"></div>
+  <div class="actions"><button class="btn soft" id="backBtn">← Back to edit</button><span class="spacer" style="flex:1"></span><span class="err" id="reviewErr"></span><button class="btn" id="confirmBtn">Create <span id="confirmCount"></span> tickets in TMS</button></div>
+</section>
+
+<!-- step 3: results -->
+<section id="results" class="review" hidden>
+  <div class="card" style="padding:16px;display:grid;gap:10px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h2 id="resTitle">Creating tickets…</h2><span class="spacer" style="flex:1"></span><span class="muted num" id="resCount"></span></div>
+    <div class="progress"><i id="bar"></i></div>
+  </div>
+  <div class="card group"><table class="rtable" id="resTable"><thead><tr><th>#</th><th>Ticket</th><th>Project</th><th>Assigned to</th><th>Result</th></tr></thead><tbody id="resRows"></tbody></table></div>
+  <div class="actions" id="resActions" hidden>
+    <button class="btn soft" id="retryBtn" hidden>Retry failed</button>
+    <button class="btn soft" id="exportBtn">Save results as CSV</button>
+    <button class="btn soft" id="copyBtn">Copy results</button>
+    <span class="spacer" style="flex:1"></span>
+    <button class="btn" id="newBatch">Start a new batch</button>
+  </div>
+</section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const b64 = (s) => btoa(unescape(encodeURIComponent(s)));
+  const isDate = (v) => Object.prototype.toString.call(v) === "[object Date]";
+  const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const uid = () => Math.random().toString(36).slice(2, 10);
+  const ICON = {
+    check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 8.5 3 3 7-7"/></svg>',
+    warn: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 2 1.5 13.5h13L8 2zM8 6.5v3.5M8 11.8v.4"/></svg>',
+    arrow: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5"/></svg>',
+    user: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="5.5" r="2.8"/><path d="M2.5 14c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5"/></svg>',
+    trash: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.6 8.5h4.8l.6-8.5"/></svg>',
+    copy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>',
+  };
+  let toastT; function toast(msg) { let t = $("toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); } t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2800); }
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } }, del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } } };
+  const sess = { get(k) { try { return JSON.parse(sessionStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } }, del(k) { try { sessionStorage.removeItem(k); } catch { /* ignore */ } } };
+
+  // ---------- environment ----------
+  // Inside the claude.ai viewer `window.claude.use` exists and network calls are blocked; opened from disk or any
+  // ordinary host there is no window.claude and fetch works (TMS allows cross-origin requests with the Authorization header).
+  const IN_SANDBOX = !!(window.claude && typeof window.claude.use === "function");
+  const SOURCE_HTML = "<!doctype html>\n" + document.documentElement.outerHTML; // captured before any state changes, for "Save the app"
+  async function saveFile(filename, data) {
+    if (IN_SANDBOX) {
+      const dl = await window.claude.use("downloads");
+      if (!dl) throw Object.assign(new Error("Downloads are not available in this view."), { code: "unavailable" });
+      return dl.save({ filename, data });
+    }
+    const blob = data instanceof Blob ? data : new Blob([data], { type: /\.csv$/i.test(filename) ? "text/csv" : /\.html?$/i.test(filename) ? "text/html" : "application/octet-stream" });
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+    return { status: "saved" };
+  }
+
+  // ---------- TMS client (EspoCRM REST) ----------
+  const tms = {
+    base: "https://tms.nupipay.com", auth: "", user: null,
+    get api() { return this.base.replace(/\/+$/, "") + "/api/v1"; },
+    async req(method, path, body) {
+      let res;
+      try {
+        res = await fetch(this.api + "/" + path, { method, headers: Object.assign({ Authorization: "Basic " + this.auth }, body !== undefined ? { "Content-Type": "application/json" } : {}), body: body === undefined ? undefined : JSON.stringify(body) });
+      } catch (e) {
+        // TMS sends no CORS headers on 401/403, so the browser reports a network error. Treat it as "refused".
+        const err = new Error(IN_SANDBOX ? "This page cannot reach TMS from inside claude.ai. Use the website: https://akashtripathi9.github.io/tms-ticket-loader/" : "Could not reach TMS: the username or password was refused, the session expired, or the TMS address is wrong."); err.status = 0; throw err;
+      }
+      const text = await res.text();
+      if (!res.ok) { const err = new Error("TMS " + method + " " + path.split("?")[0] + " failed: HTTP " + res.status + (res.headers.get("x-status-reason") ? " (" + res.headers.get("x-status-reason") + ")" : "") + (text ? " " + text.slice(0, 200) : "")); err.status = res.status; throw err; }
+      return text ? JSON.parse(text) : undefined;
+    },
+    async login(base, username, password) {
+      this.base = base; this.auth = b64(username + ":" + password);
+      const data = await this.req("GET", "App/user");
+      if (!data || !data.user || !data.user.id) throw new Error("TMS did not return a user.");
+      this.user = { id: data.user.id, name: data.user.name || username, userName: username, isAdmin: !!data.user.isAdmin, type: data.user.type };
+      if (data.token) {
+        const tokenAuth = b64(username + ":" + data.token);
+        const prev = this.auth; this.auth = tokenAuth;
+        try { await this.req("GET", "App/user"); } catch { this.auth = prev; } // some servers want the token header; fall back to password for this tab
+      }
+      sess.set("tl.session", { base: this.base, auth: this.auth, user: this.user });
+      return this.user;
+    },
+    restore() { const s = sess.get("tl.session"); if (s && s.auth && s.user) { this.base = s.base; this.auth = s.auth; this.user = s.user; return true; } return false; },
+    async logout() { try { await this.req("POST", "App/action/destroyAuthToken", { token: atob(this.auth).split(":").slice(1).join(":") }); } catch { /* ignore */ } this.auth = ""; this.user = null; sess.del("tl.session"); },
+    ticketUrl(id) { return this.base.replace(/\/+$/, "") + "/#ProjectTask/view/" + id; },
+    async list(entity, params) { const q = new URLSearchParams(Object.assign({ maxSize: "200", offset: "0" }, params)); const d = await this.req("GET", entity + "?" + q); return (d && d.list) || []; },
+    async listAll(entity, params) { const out = []; for (let off = 0; off < 2000; off += 200) { const page = await this.list(entity, Object.assign({}, params, { offset: String(off) })); out.push(...page); if (page.length < 200) break; } return out; },
+  };
+
+  // ---------- reference data ----------
+  const ref = { users: [], projects: [], teams: [], fields: [], columnsByProject: {}, allColumns: [], labels: {}, options: {}, links: {} };
+  const CORE = [
+    { key: "name", label: "Ticket title", required: true, type: "varchar", cls: "col-name", core: true },
+    { key: "projectId", label: "Project", required: true, type: "project", cls: "col-project", core: true },
+    { key: "assignedUserId", label: "Assign to", type: "user", cls: "col-user", core: true },
+    { key: "columnId", label: "Status", type: "status", cls: "col-status", core: true },
+    { key: "description", label: "Description", type: "text", cls: "col-desc", core: true },
+  ];
+  const SKIP_FIELDS = new Set(["id", "name", "description", "deleted", "createdAt", "modifiedAt", "createdBy", "modifiedBy", "assignedUser", "project", "column", "columnId", "columnName", "cStageForAnalysis", "number", "projectTasks", "loggedHours", "actualHours", "attachments", "followers", "isFollowed", "versionNumber", "stream", "parent", "account", "contact", "emailAddress", "phoneNumber"]);
+  const ALLOWED_TYPES = new Set(["varchar", "text", "wysiwyg", "enum", "date", "datetime", "int", "float", "currency", "bool", "url", "multiEnum", "link", "linkMultiple"]);
+  // Entities a link field can point at from the sheet (anything else is left to TMS defaults).
+  const LINK_LISTS = { User: () => ref.users, Team: () => ref.teams };
+  const TYPE_RANK = { enum: 1, link: 2, linkMultiple: 3, date: 4, datetime: 5, int: 6, float: 6, currency: 6, bool: 7, varchar: 8, url: 8, multiEnum: 9, text: 10, wysiwyg: 10 };
+  const TYPE_WORDS = { enum: "choice", link: "pick one", linkMultiple: "pick several", date: "date", datetime: "date & time", int: "whole number", float: "number", currency: "amount", bool: "yes / no", varchar: "text", url: "link", multiEnum: "several choices", text: "long text", wysiwyg: "long text" };
+
+  async function loadReference(progress) {
+    progress("Loading people…");
+    try {
+      ref.users = (await tms.listAll("User", { orderBy: "name", order: "asc", select: "name,userName,type,isActive", "where[0][type]": "isTrue", "where[0][attribute]": "isActive" })).filter((u) => !u.type || ["regular", "admin"].includes(u.type));
+    } catch (e) {
+      ref.users = [];
+    }
+    progress("Loading projects…");
+    try { ref.projects = await tms.listAll("Project", { orderBy: "name", order: "asc", select: "name" }); } catch { ref.projects = []; }
+    try { ref.teams = await tms.listAll("Team", { orderBy: "name", order: "asc", select: "name" }); } catch { ref.teams = []; }
+    progress("Reading ticket fields and statuses…");
+    let defs = {}, i18n = {};
+    try { defs = (await tms.req("GET", "Metadata?key=entityDefs.ProjectTask.fields")) || {}; } catch { defs = {}; }
+    try { ref.links = (await tms.req("GET", "Metadata?key=entityDefs.ProjectTask.links")) || {}; } catch { ref.links = {}; }
+    try { i18n = (await tms.req("GET", "I18n")) || {}; } catch { i18n = {}; }
+    ref.labels = (i18n.ProjectTask && i18n.ProjectTask.fields) || {};
+    ref.options = (i18n.ProjectTask && i18n.ProjectTask.options) || {};
+    const niceLabel = (k) => k.replace(/^c(?=[A-Z])/, "").replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase()).trim();
+    ref.fields = Object.entries(defs).filter(([k, d]) => d && ALLOWED_TYPES.has(d.type) && !SKIP_FIELDS.has(k) && !d.readOnly && !d.disabled && !d.utility && !d.notStorable && !/Id$|Name$|Ids$|Names$|Currency$/.test(k))
+      .map(([k, d]) => {
+        const f = { key: k, label: ref.labels[k] || niceLabel(k), type: d.type === "wysiwyg" ? "text" : d.type === "currency" ? "float" : d.type, required: !!d.required, options: d.options || null, cls: "col-x", tooltip: d.tooltipText || "" };
+        if (d.type === "link" || d.type === "linkMultiple") { f.entity = (ref.links[k] && ref.links[k].entity) || (/user/i.test(k) ? "User" : /team/i.test(k) ? "Team" : ""); if (!LINK_LISTS[f.entity]) return null; }
+        return f;
+      }).filter(Boolean)
+      .sort((a, b) => (b.required - a.required) || ((TYPE_RANK[a.type] || 8) - (TYPE_RANK[b.type] || 8)) || (isStartField(b) - isStartField(a)) || a.label.localeCompare(b.label));
+    // Fields TMS marks as required cannot be left out of the grid.
+    ref.fields.filter((f) => f.required).forEach((f) => visibleCols.add(f.key));
+    // Fallbacks when lists are restricted: harvest from recent tickets.
+    let recent = [];
+    try { recent = await tms.listAll("ProjectTask", { orderBy: "modifiedAt", order: "desc", select: "columnId,columnName,projectId,projectName,assignedUserId,assignedUserName" }); } catch { recent = []; }
+    if (!ref.users.length) { const m = new Map(); recent.forEach((t) => { if (t.assignedUserId && !m.has(t.assignedUserId)) m.set(t.assignedUserId, { id: t.assignedUserId, name: t.assignedUserName || t.assignedUserId }); }); ref.users = [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
+    if (!ref.projects.length) { const m = new Map(); recent.forEach((t) => { if (t.projectId && !m.has(t.projectId)) m.set(t.projectId, { id: t.projectId, name: t.projectName || t.projectId }); }); ref.projects = [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
+    const byP = {}; const all = new Map();
+    recent.forEach((t) => { if (t.columnId && t.columnName) { (byP[t.projectId] = byP[t.projectId] || new Map()).set(t.columnId, { id: t.columnId, name: t.columnName }); all.set(t.columnId, { id: t.columnId, name: t.columnName }); } });
+    Object.keys(byP).forEach((p) => { ref.columnsByProject[p] = [...byP[p].values()]; });
+    ref.allColumns = [...all.values()];
+  }
+  const isStartField = (f) => /start|begin|from/i.test(f.key + " " + f.label) ? 1 : 0;
+  function columnsFor(projectId) { return (projectId && ref.columnsByProject[projectId]) || ref.allColumns; }
+  function linkItems(f) { return (f && f.entity && LINK_LISTS[f.entity]) ? LINK_LISTS[f.entity]() : []; }
+  function enumItems(f) { return (f.options || []).map((o) => ({ id: o, name: (ref.options[f.key] || {})[o] || o })); }
+  function nameOf(items, id) { return (items.find((x) => x.id === id) || {}).name || ""; }
+  /** Reads a date from a sheet cell or typed text: Date objects, Excel serials, ISO, 23/10/2026, 23-10-2026, 23.10.2026, 23 Oct 2026, Oct 23 2026. Day-first when ambiguous. */
+  const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+  function parseDateText(v) {
+    if (v === null || v === undefined || v === "") return null;
+    const iso = (y, m, d) => { y = +y; m = +m; d = +d; if (y < 100) y += 2000; if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1990 && y <= 2100)) return null; const dt = new Date(Date.UTC(y, m - 1, d)); return dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? dt.toISOString().slice(0, 10) : null; };
+    if (isDate(v)) return isNaN(v) ? null : iso(v.getUTCFullYear(), v.getUTCMonth() + 1, v.getUTCDate()) || null;
+    if (typeof v === "number") { if (v > 20000 && v < 80000) { const dt = new Date(Math.round((v - 25569) * 86400000)); return iso(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()); } return null; }
+    const t = String(v).trim(); let m;
+    if ((m = t.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[T\s].*)?$/))) return iso(m[1], m[2], m[3]);
+    if ((m = t.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})$/))) return iso(m[3], m[2], m[1]) || iso(m[3], m[1], m[2]);
+    if ((m = t.match(/^(\d{1,2})(?:st|nd|rd|th)?[\s-]+([a-z]{3,})[\s,-]+(\d{2,4})$/i)) && MONTHS[m[2].slice(0, 4).toLowerCase()] !== undefined) return iso(m[3], MONTHS[m[2].slice(0, 4).toLowerCase()] || MONTHS[m[2].slice(0, 3).toLowerCase()], m[1]);
+    if ((m = t.match(/^([a-z]{3,})[\s-]+(\d{1,2})(?:st|nd|rd|th)?[\s,-]+(\d{2,4})$/i)) && MONTHS[m[1].slice(0, 3).toLowerCase()] !== undefined) return iso(m[3], MONTHS[m[1].slice(0, 3).toLowerCase()], m[2]);
+    const d = new Date(t); return isNaN(d) ? null : iso(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  }
+  /** datetime-local or sheet value -> Espo "YYYY-MM-DD HH:MM:SS" in UTC. */
+  function toEspoDateTime(v) {
+    if (!v) return null; const d = isDate(v) ? v : new Date(String(v).trim().replace(" ", "T"));
+    if (isNaN(d)) { const day = parseDateText(v); return day ? day + " 09:00:00" : null; }
+    return d.toISOString().slice(0, 19).replace("T", " ");
+  }
+  function splitNames(v) { return String(v || "").split(/[,;\n|]+/).map((x) => x.trim()).filter(Boolean); }
+
+  // ---------- name matching ----------
+  function matchName(input, items, opts) {
+    opts = opts || {};
+    const raw = String(input ?? "").trim(); if (!raw) return { item: null, confidence: 0 };
+    const byId = items.find((i) => i.id === raw); if (byId) return { item: byId, confidence: 1 };
+    const q = norm(raw);
+    const scored = items.map((i) => {
+      const n = norm(i.name), u = norm(i.userName || "");
+      let s = 0;
+      if (n === q || (u && u === q)) s = 1;
+      else if (n.startsWith(q) || q.startsWith(n)) s = 0.9;
+      else if (n.includes(q) || q.includes(n)) s = 0.8;
+      else { const qt = q.split(" ").filter(Boolean), nt = n.split(" ").filter(Boolean); const hit = qt.filter((t) => nt.some((x) => x.startsWith(t))).length; if (hit) s = 0.5 + 0.3 * (hit / Math.max(qt.length, nt.length)); }
+      return { item: i, s };
+    }).filter((x) => x.s > 0).sort((a, b) => b.s - a.s);
+    if (!scored.length) return { item: null, confidence: 0 };
+    if (scored.length > 1 && scored[0].s === scored[1].s && scored[0].s < 1) return { item: null, confidence: 0, ambiguous: scored.slice(0, 3).map((x) => x.item) };
+    return { item: scored[0].item, confidence: scored[0].s };
+  }
+
+  // ---------- rows ----------
+  let rows = []; let visibleCols = new Set(["name", "projectId", "assignedUserId", "columnId", "description"]);
+  function allCols() { return CORE.concat(ref.fields); }
+  function colByKey(k) { return allCols().find((c) => c.key === k); }
+  function newRow(seed) { return Object.assign({ _id: uid(), name: "", projectId: "", assignedUserId: "", columnId: "", description: "", _hint: {}, _sel: false, _done: null }, seed || {}); }
+  function saveDraft() { store.set("tl.draft", { rows: rows.map((r) => { const c = Object.assign({}, r); delete c._sel; delete c._done; return c; }), cols: [...visibleCols], at: Date.now() }); }
+  function restoreDraft() { const d = store.get("tl.draft"); if (d && Array.isArray(d.rows) && d.rows.length && d.rows.some((r) => r.name || r.description)) { rows = d.rows.map((r) => newRow(r)); if (Array.isArray(d.cols)) d.cols.forEach((c) => visibleCols.add(c)); return true; } return false; }
+
+  // ---------- header synonyms for import ----------
+  const SYN = {
+    name: ["ticket", "ticket title", "title", "task", "task name", "summary", "name", "subject"],
+    projectId: ["project", "project name", "module", "app"],
+    assignedUserId: ["assign to", "assigned to", "assignee", "owner", "developer", "assigned user", "user", "person", "dev"],
+    columnId: ["status", "column", "stage", "state", "board column"],
+    description: ["description", "details", "notes", "acceptance criteria", "desc"],
+  };
+  // Headings for fields whose TMS name we only know at runtime: [heading synonyms, regex on field key/label]
+  const DYN_SYN = [
+    [["start date", "start", "starts", "start on", "from"], /start/i],
+    [["due date", "due", "due on", "end date", "end", "deadline", "target date", "eta", "finish"], /due|end|deadline|target/i],
+    [["priority", "prio", "severity", "urgency"], /priorit|severit/i],
+    [["estimated hours", "estimate", "estimated", "estimation", "est hours", "est", "effort", "estimated effort", "hours", "planned hours"], /estimat|effort/i],
+    [["team", "teams"], /^teams?$/i],
+    [["type", "ticket type", "task type", "kind"], /type/i],
+    [["sprint", "milestone", "release"], /sprint|milestone|release/i],
+  ];
+  function headerToKey(h, strict) {
+    const q = norm(h).replace(/\s*\*$/, ""); if (!q) return null;
+    for (const [k, syns] of Object.entries(SYN)) if (syns.includes(q)) return k;
+    const f = allCols().find((c) => norm(c.label) === q || norm(c.key) === q); if (f) return f.key;
+    for (const [syns, rx] of DYN_SYN) if (syns.includes(q)) { const g = ref.fields.find((c) => rx.test(c.key) || rx.test(c.label)); if (g) return g.key; }
+    if (strict) return null;
+    for (const [k, syns] of Object.entries(SYN)) if (syns.some((s) => q.includes(s))) return k;
+    return null;
+  }
+  /** A row is a header when at least two cells are known headings, or every filled cell is one. */
+  function isHeaderRow(cells) {
+    const filled = cells.filter((c) => String(c ?? "").trim());
+    if (!filled.length) return false;
+    const strict = filled.map((c) => headerToKey(c, true)).filter(Boolean).length;
+    return strict >= 2 || strict === filled.length;
+  }
+  function parseDelimited(text) {
+    const t = String(text || "").replace(/\r\n?/g, "\n"); if (!t.trim()) return [];
+    const firstLine = t.split("\n")[0]; const delim = firstLine.includes("\t") ? "\t" : (firstLine.split(",").length > firstLine.split(";").length ? "," : ";");
+    const out = []; let row = [], cell = "", q = false;
+    for (let i = 0; i < t.length; i++) {
+      const ch = t[i];
+      if (q) { if (ch === '"') { if (t[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === delim) { row.push(cell); cell = ""; }
+      else if (ch === "\n") { row.push(cell); out.push(row); row = []; cell = ""; }
+      else cell += ch;
+    }
+    row.push(cell); if (row.some((c) => c !== "")) out.push(row);
+    return out.filter((r) => r.some((c) => String(c).trim() !== ""));
+  }
+  /** Turns a 2-D array (optional header row) into rows with names resolved against TMS lists. */
+  function mapImported(table) {
+    if (!table.length) return { rows: [], mapped: [], unmapped: [] };
+    const hasHeader = isHeaderRow(table[0]);
+    const first = hasHeader ? table[0].map((h) => headerToKey(h)) : [];
+    const keys = hasHeader ? first : ["name", "projectId", "assignedUserId", "columnId", "description"];
+    const body = hasHeader ? table.slice(1) : table;
+    const unmapped = hasHeader ? table[0].filter((h, i) => !first[i] && String(h).trim()) : [];
+    const out = body.map((cells) => {
+      const r = newRow(); r._hint = {};
+      keys.forEach((k, i) => {
+        if (!k) return; const v = cells[i] == null ? "" : (isDate(cells[i]) ? cells[i].toISOString().slice(0, 10) : String(cells[i]).trim());
+        if (!v) return;
+        if (k === "projectId") { const m = matchName(v, ref.projects); r.projectId = m.item ? m.item.id : ""; r._hint.projectId = m.item ? (m.confidence < 1 ? { cls: "warn", text: "“" + v + "” read as " + m.item.name } : null) : { cls: "bad", text: "No project named “" + v + "”" + (m.ambiguous ? " (could be " + m.ambiguous.map((x) => x.name).join(" / ") + ")" : "") }; }
+        else if (k === "assignedUserId") { const m = matchName(v, ref.users); r.assignedUserId = m.item ? m.item.id : ""; r._hint.assignedUserId = m.item ? (m.confidence < 1 ? { cls: "warn", text: "“" + v + "” read as " + m.item.name } : null) : { cls: "bad", text: "No user named “" + v + "”" + (m.ambiguous ? " (could be " + m.ambiguous.map((x) => x.name).join(" / ") + ")" : "") }; }
+        else if (k === "columnId") { r._statusText = v; }
+        else { const f = colByKey(k); if (!f) return; visibleCols.add(k); setImported(r, f, cells[i], v); }
+      });
+      // status resolves against the project's columns (or all known columns)
+      if (r._statusText) { const m = matchName(r._statusText, columnsFor(r.projectId)); r.columnId = m.item ? m.item.id : ""; r._hint.columnId = m.item ? null : { cls: "bad", text: "No status named “" + r._statusText + "”" }; delete r._statusText; }
+      return r;
+    }).filter((r) => r.name || r.description);
+    return { rows: out, mapped: keys.filter(Boolean), unmapped };
+  }
+  /** Coerces one imported cell into the row according to the field type; unreadable values are flagged, not dropped. */
+  function setImported(r, f, raw, v) {
+    const k = f.key;
+    if (f.type === "enum" && f.options) { const m = matchName(v, enumItems(f)); r[k] = m.item ? m.item.id : v; r._hint[k] = m.item ? null : { cls: "bad", text: "“" + v + "” is not one of the " + f.label + " choices" }; }
+    else if (f.type === "multiEnum" && f.options) { const picked = splitNames(v).map((n) => matchName(n, enumItems(f))); r[k] = picked.filter((m) => m.item).map((m) => m.item.id); const bad = picked.filter((m) => !m.item); r._hint[k] = bad.length ? { cls: "bad", text: "Unknown " + f.label + ": " + splitNames(v).filter((n, i) => !picked[i].item).join(", ") } : null; }
+    else if (f.type === "bool") { r[k] = /^(1|true|yes|y|x|✓|done)$/i.test(v) ? true : /^(0|false|no|n|-)$/i.test(v) ? false : ""; if (r[k] === "") r._hint[k] = { cls: "warn", text: "“" + v + "” read as blank; use Yes or No" }; }
+    else if (f.type === "date") { const d = parseDateText(isDate(raw) || typeof raw === "number" ? raw : v); r[k] = d || ""; r._hint[k] = d ? null : { cls: "bad", text: "Could not read the date “" + v + "” (use YYYY-MM-DD or DD/MM/YYYY)" }; }
+    else if (f.type === "datetime") { const d = isDate(raw) ? raw : v; const e = toEspoDateTime(d); r[k] = e ? e.replace(" ", "T").slice(0, 16) : ""; r._hint[k] = e ? null : { cls: "bad", text: "Could not read the date/time “" + v + "”" }; }
+    else if (f.type === "int" || f.type === "float") { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, "")); r[k] = isNaN(n) ? "" : (f.type === "int" ? Math.round(n) : n); r._hint[k] = isNaN(n) ? { cls: "bad", text: f.label + " must be a number, not “" + v + "”" } : null; }
+    else if (f.type === "link") { const m = matchName(v, linkItems(f)); r[k] = m.item ? m.item.id : ""; r._hint[k] = m.item ? (m.confidence < 1 ? { cls: "warn", text: "“" + v + "” read as " + m.item.name } : null) : { cls: "bad", text: "No " + f.entity.toLowerCase() + " named “" + v + "”" }; }
+    else if (f.type === "linkMultiple") { const names = splitNames(v); const ms = names.map((n) => matchName(n, linkItems(f))); r[k] = ms.filter((m) => m.item).map((m) => m.item.id); const bad = names.filter((n, i) => !ms[i].item); r._hint[k] = bad.length ? { cls: "bad", text: "Unknown " + f.label.toLowerCase() + ": " + bad.join(", ") } : null; }
+    else r[k] = v;
+  }
+  async function importWorkbook(buffer) {
+    if (!window.ExcelJS) throw new Error("The Excel library did not load. Paste the rows instead, or import a CSV.");
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buffer);
+    const ws = wb.getWorksheet("Tickets") || wb.worksheets.find((w) => w.state !== "hidden" && !/^(lists|instructions|readme)$/i.test(w.name)) || wb.worksheets[0];
+    if (!ws) throw new Error("The workbook has no sheets.");
+    const table = [];
+    ws.eachRow({ includeEmpty: false }, (row) => { const cells = []; for (let c = 1; c <= ws.columnCount; c++) { const v = row.getCell(c).value; cells.push(v && typeof v === "object" ? (v.richText ? v.richText.map((t) => t.text).join("") : v.text !== undefined ? v.text : v.result !== undefined ? v.result : isDate(v) ? v : "") : v); } table.push(cells); });
+    // Skip a title/instruction block above the real header: find the first row that maps to >= 2 known columns.
+    let start = 0; for (let i = 0; i < Math.min(table.length, 10); i++) { if (isHeaderRow(table[i]) && table[i].filter((c) => String(c ?? "").trim()).length >= 2) { start = i; break; } }
+    return mapImported(table.slice(start));
+  }
+
+  // ---------- template workbook ----------
+  /** Column order for the sheet: title, project, person, status, then every other TMS field (required first), description last. */
+  function templateCols() { const core = CORE.filter((c) => c.key !== "description"); return core.concat(ref.fields).concat(CORE.filter((c) => c.key === "description")); }
+  function noteFor(c) {
+    if (c.key === "name") return "Required. A short, specific title. Rows without a title are skipped.";
+    if (c.key === "projectId") return "Required. Pick from the dropdown; the list comes from TMS.";
+    if (c.key === "assignedUserId") return "Optional. Pick a person, or leave blank to create the ticket unassigned.";
+    if (c.key === "columnId") return "Optional. Board column the ticket starts in; blank = the project's default.";
+    if (c.key === "description") return "Recommended. What needs to be done and how we will know it is done.";
+    const base = c.tooltip ? c.tooltip + " " : "";
+    const how = c.type === "date" ? "Date: click the arrow to pick, or type YYYY-MM-DD / DD-MM-YYYY." : c.type === "datetime" ? "Date and time, e.g. 2026-10-23 14:30." : c.type === "enum" ? "Pick one: " + enumItems(c).map((o) => o.name).join(", ") + "." : c.type === "multiEnum" ? "One or more of: " + enumItems(c).map((o) => o.name).join(", ") + " (comma separated)." : c.type === "bool" ? "Yes or No." : c.type === "int" ? "Whole number." : c.type === "float" ? "Number, e.g. 4 or 2.5." : c.type === "link" ? "Pick one " + (c.entity || "").toLowerCase() + " from the dropdown." : c.type === "linkMultiple" ? "One or more " + (c.entity || "").toLowerCase() + "s, comma separated." : c.type === "url" ? "A full link starting with http(s)://." : "Free text.";
+    return (c.required ? "Required. " : "Optional. ") + base + how;
+  }
+  async function buildTemplate() {
+    const wb = new ExcelJS.Workbook(); wb.creator = "NUPI Ticket Loader";
+    const ws = wb.addWorksheet("Tickets", { views: [{ state: "frozen", ySplit: 1 }] });
+    const lists = wb.addWorksheet("Lists"); const info = wb.addWorksheet("Instructions");
+    // Every field TMS allows on a ticket goes into the sheet, so nothing has to be filled in afterwards. Description last.
+    const cols = templateCols();
+    const widthFor = (c) => c.key === "name" ? 46 : c.key === "description" || c.type === "text" ? 60 : c.type === "date" ? 14 : c.type === "datetime" ? 20 : c.type === "int" || c.type === "float" ? 16 : c.type === "bool" ? 12 : 24;
+    ws.columns = cols.map((c) => ({ header: c.label + (c.required ? " *" : ""), key: c.key, width: widthFor(c) }));
+    const head = ws.getRow(1); head.height = 26; head.eachCell((cell, ci) => { const c = cols[ci - 1]; cell.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: c.required ? "FF0E7C6B" : "FF3A9B8B" } }; cell.alignment = { vertical: "middle" }; cell.border = { bottom: { style: "thin", color: { argb: "FF0A5A4E" } } }; cell.note = { texts: [{ font: { name: "Arial", size: 10 }, text: noteFor(c) }] }; });
+    ws.autoFilter = { from: "A1", to: { row: 1, column: cols.length } };
+    // Lists sheet: one column per dropdown, plus a run of dates for the click-to-pick date columns
+    const listCols = [["Users", ref.users.map((u) => u.name)], ["Projects", ref.projects.map((p) => p.name)], ["Statuses", ref.allColumns.map((c) => c.name)]];
+    if (ref.teams.length) listCols.push(["Teams", ref.teams.map((t) => t.name)]);
+    ref.fields.filter((c) => (c.type === "enum" || c.type === "multiEnum") && c.options).forEach((c) => listCols.push([c.label, enumItems(c).map((o) => o.name)]));
+    const dates = []; const today = new Date(); today.setHours(0, 0, 0, 0); for (let i = -14; i <= 365; i++) { dates.push(new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate() + i))); }
+    const hasDates = cols.some((c) => c.type === "date" || c.type === "datetime"); if (hasDates) listCols.push(["Dates", dates]);
+    listCols.forEach(([title, values], i) => { const col = lists.getColumn(i + 1); col.width = 28; const h = lists.getCell(1, i + 1); h.value = title; h.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" } }; h.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E7C6B" } }; values.forEach((v, r) => { const cell = lists.getCell(r + 2, i + 1); cell.value = v; cell.font = { name: "Arial" }; if (isDate(v)) cell.numFmt = "yyyy-mm-dd"; }); });
+    lists.views = [{ state: "frozen", ySplit: 1 }];
+    const letter = (n) => { let s = ""; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+    const listRef = (i, len) => "Lists!$" + letter(i + 1) + "$2:$" + letter(i + 1) + "$" + Math.max(2, len + 1);
+    const listIdx = (title) => listCols.findIndex(([t]) => t === title);
+    const MAXR = 1000;
+    cols.forEach((c, ci) => {
+      const L = letter(ci + 1); const range = L + "2:" + L + MAXR; const dv = (o) => ws.dataValidations.add(range, Object.assign({ allowBlank: !c.required, showInputMessage: true, promptTitle: c.label }, o));
+      if (c.key === "assignedUserId") dv({ type: "list", formulae: [listRef(0, ref.users.length)], showErrorMessage: true, errorTitle: "Unknown user", error: "Pick a user from the list (names come from TMS).", prompt: "Pick the person, or leave blank to create the ticket unassigned." });
+      else if (c.key === "projectId") dv({ type: "list", allowBlank: false, formulae: [listRef(1, ref.projects.length)], showErrorMessage: true, errorTitle: "Unknown project", error: "Pick a project from the list.", prompt: "Required. Pick the project from the list." });
+      else if (c.key === "columnId") dv({ type: "list", formulae: [listRef(2, ref.allColumns.length)], showErrorMessage: true, errorTitle: "Unknown status", error: "Pick a status from the list, or leave blank for the default.", prompt: "Board column to start in. Blank = the project's default." });
+      else if ((c.type === "link" || c.type === "linkMultiple") && c.entity === "User") dv({ type: "list", formulae: [listRef(0, ref.users.length)], showErrorMessage: c.type === "link", errorTitle: "Unknown user", error: "Pick a user from the list.", prompt: c.type === "link" ? "Pick one person." : "Pick a person; for several, type names separated by commas." });
+      else if ((c.type === "link" || c.type === "linkMultiple") && c.entity === "Team" && ref.teams.length) dv({ type: "list", formulae: [listRef(listIdx("Teams"), ref.teams.length)], showErrorMessage: c.type === "link", errorTitle: "Unknown team", error: "Pick a team from the list.", prompt: c.type === "link" ? "Pick one team." : "Pick a team; for several, type names separated by commas." });
+      else if ((c.type === "enum" || c.type === "multiEnum") && c.options) { const li = listIdx(c.label); if (li >= 0) dv({ type: "list", formulae: [listRef(li, c.options.length)], showErrorMessage: c.type === "enum", errorTitle: "Not a valid choice", error: "Pick one of the listed values.", prompt: c.type === "enum" ? "Pick one value from the list." : "Pick a value; for several, type them separated by commas." }); }
+      else if (c.type === "date") { dv({ type: "list", formulae: [listRef(listIdx("Dates"), dates.length)], showErrorMessage: false, prompt: "Click the arrow and pick a date, or type one (YYYY-MM-DD or DD/MM/YYYY). In Google Sheets, double-click the cell for a calendar." }); ws.getColumn(c.key).numFmt = "yyyy-mm-dd"; }
+      else if (c.type === "datetime") { dv({ type: "list", formulae: [listRef(listIdx("Dates"), dates.length)], showErrorMessage: false, prompt: "Pick a date from the arrow, then add the time after it if needed (e.g. 2026-10-23 14:30)." }); ws.getColumn(c.key).numFmt = "yyyy-mm-dd hh:mm"; }
+      else if (c.type === "int") dv({ type: "whole", operator: "greaterThanOrEqual", formulae: [0], showErrorMessage: true, error: "Enter a whole number.", prompt: "Whole number." });
+      else if (c.type === "float") dv({ type: "decimal", operator: "greaterThanOrEqual", formulae: [0], showErrorMessage: true, error: "Enter a number, e.g. 4 or 2.5.", prompt: "Number, e.g. 4 or 2.5." });
+      else if (c.type === "bool") dv({ type: "list", formulae: ['"Yes,No"'], showErrorMessage: true, error: "Yes or No.", prompt: "Yes or No." });
+      else if (c.type === "url") dv({ type: "custom", formulae: ['ISNUMBER(FIND("http",' + L + '2))'], showErrorMessage: false, prompt: "Full link starting with http(s)://" });
+    });
+    // Two example rows, clearly marked; dates relative to today so they are never in the past
+    const d1 = new Date(dates[14].getTime()), d2 = new Date(dates[18].getTime());
+    const sample = { name: "EXAMPLE – Add OTP resend cooldown on login screen", projectId: ref.projects[0] ? ref.projects[0].name : "", assignedUserId: ref.users[0] ? ref.users[0].name : "", columnId: ref.allColumns[0] ? ref.allColumns[0].name : "", description: "Show a 30 second countdown after the first OTP, disable the resend button meanwhile, and log the resend event." };
+    const sample2 = { name: "EXAMPLE – Fix settlement report export timeout", projectId: ref.projects[1] ? ref.projects[1].name : (ref.projects[0] ? ref.projects[0].name : ""), assignedUserId: "", columnId: "", description: "Export of more than 5000 rows times out. Move the export to a background job and email the file." };
+    ref.fields.forEach((f, i) => { const ex = (c) => { if (f.type === "enum" && f.options) return enumItems(f)[Math.min(1, f.options.length - 1)].name; if (f.type === "date") return isStartField(f) ? d1 : d2; if (f.type === "int") return 3; if (f.type === "float") return 6; if (f.type === "bool") return "No"; if (f.type === "link" || f.type === "linkMultiple") { const it = linkItems(f); return it.length ? it[0].name : ""; } return ""; }; sample[f.key] = ex(); if (f.required) sample2[f.key] = ex(); });
+    [sample, sample2].forEach((e) => { const r = ws.addRow(cols.map((c) => e[c.key] === undefined ? "" : e[c.key])); r.eachCell({ includeEmpty: true }, (cell) => { cell.font = { name: "Arial", italic: true, color: { argb: "FF6B7A72" } }; cell.alignment = { wrapText: true, vertical: "top" }; }); });
+    for (let r = 4; r <= 60; r++) ws.getRow(r).eachCell({ includeEmpty: true }, (c) => { c.font = { name: "Arial" }; c.alignment = { wrapText: true, vertical: "top" }; });
+    ws.getColumn("description").alignment = { wrapText: true, vertical: "top" };
+    ws.getColumn("name").alignment = { wrapText: true, vertical: "top" };
+    // Instructions
+    info.getColumn(1).width = 112;
+    const reqNames = cols.filter((c) => c.required).map((c) => c.label).join(", ");
+    const lines = [["How to use this sheet", true], ["1. Fill one ticket per row on the “Tickets” sheet. Delete the two grey EXAMPLE rows before importing.", false], ["2. Columns marked * are required: " + reqNames + ". Every other column is optional and matches a field on the TMS ticket form.", false], ["3. Dropdowns (Project, Assign to, Status, " + (ref.teams.length ? "Teams, " : "") + "choices) come from the “Lists” sheet, read from TMS on " + new Date().toISOString().slice(0, 10) + " for " + tms.user.name + ". Download a fresh template when people or projects change.", false], ["4. Date columns: click the cell, then the arrow, and pick the date from the list (the list runs from two weeks ago to a year ahead). Typing a date also works: 2026-10-23 or 23/10/2026. In Google Sheets, double-click a date cell to get a calendar.", false], ["5. Leave Status blank to use the project’s default column. Leave Assign to blank to create the ticket unassigned.", false], ["6. Back in NUPI Ticket Loader, click “Import Excel / CSV”, check the preview (problems are marked red), Review, then Confirm. Nothing is created until you confirm.", false], ["", false], ["Column guide", true]].concat(cols.map((c) => [c.label + (c.required ? " (required)" : "") + " — " + noteFor(c), false]));
+    lines.forEach(([t, bold], i) => { const c = info.getCell(i + 1, 1); c.value = t; c.font = { name: "Arial", bold, size: bold ? 14 : 11 }; c.alignment = { wrapText: true, vertical: "top" }; });
+    return wb;
+  }
+
+  // ---------- validation / payload ----------
+  function validate(list) {
+    const seen = new Map(); const problems = [];
+    list.forEach((r, i) => {
+      const errs = [];
+      if (!String(r.name || "").trim()) errs.push("Ticket title is required.");
+      else if (String(r.name).trim().length < 6) errs.push("Title is too short to be useful.");
+      if (!r.projectId) errs.push("Project is required.");
+      Object.entries(r._hint || {}).forEach(([k, h]) => { if (h && h.cls === "bad" && (k !== "assignedUserId" || !r.assignedUserId) && (k !== "columnId" || !r.columnId) && (k !== "projectId" || !r.projectId)) errs.push(h.text + "."); });
+      if (r.columnId && r.projectId && ref.columnsByProject[r.projectId] && !ref.columnsByProject[r.projectId].some((c) => c.id === r.columnId)) errs.push("That status does not exist on this project's board.");
+      ref.fields.filter((f) => f.required).forEach((f) => { const v = r[f.key]; if (v === undefined || v === "" || v === null || (Array.isArray(v) && !v.length)) errs.push(f.label + " is required."); });
+      const ds = ref.fields.find((f) => f.type === "date" && /start/i.test(f.key + f.label)), de = ref.fields.find((f) => f.type === "date" && /end|due|deadline/i.test(f.key + f.label));
+      if (ds && de && r[ds.key] && r[de.key] && r[de.key] < r[ds.key]) errs.push(de.label + " is before " + ds.label + ".");
+      const key = r.projectId + "|" + norm(r.name);
+      if (r.name && r.projectId) { if (seen.has(key)) errs.push("Same title as row " + (seen.get(key) + 1) + " in the same project."); else seen.set(key, i); }
+      r._errs = errs; if (errs.length) problems.push(i);
+    });
+    return problems;
+  }
+  function payloadFor(r) {
+    const p = { name: String(r.name).trim(), projectId: r.projectId, projectName: (ref.projects.find((x) => x.id === r.projectId) || {}).name };
+    if (r.assignedUserId) { p.assignedUserId = r.assignedUserId; p.assignedUserName = (ref.users.find((x) => x.id === r.assignedUserId) || {}).name; }
+    if (r.columnId) { p.columnId = r.columnId; p.columnName = (columnsFor(r.projectId).find((c) => c.id === r.columnId) || {}).name; }
+    if (String(r.description || "").trim()) p.description = String(r.description).trim();
+    ref.fields.forEach((f) => {
+      const v = r[f.key]; if (v === undefined || v === "" || v === null || (Array.isArray(v) && !v.length)) return;
+      if (f.type === "int") p[f.key] = parseInt(v, 10);
+      else if (f.type === "float") p[f.key] = parseFloat(v);
+      else if (f.type === "datetime") { const e = toEspoDateTime(v); if (e) p[f.key] = e; }
+      else if (f.type === "link") { p[f.key + "Id"] = v; p[f.key + "Name"] = nameOf(linkItems(f), v); }
+      else if (f.type === "linkMultiple") { const ids = Array.isArray(v) ? v : [v]; p[f.key + "Ids"] = ids; p[f.key + "Names"] = Object.fromEntries(ids.map((id) => [id, nameOf(linkItems(f), id)])); }
+      else p[f.key] = v;
+    });
+    return p;
+  }
+
+  // ---------- rendering: grid ----------
+  function optionsHtml(items, value, blank) { return '<option value="">' + esc(blank) + "</option>" + items.map((i) => '<option value="' + esc(i.id) + '"' + (i.id === value ? " selected" : "") + ">" + esc(i.name) + "</option>").join(""); }
+  function renderHead() {
+    const cols = allCols().filter((c) => visibleCols.has(c.key));
+    $("headRow").innerHTML = '<th></th><th>#</th>' + cols.map((c) => '<th class="' + c.cls + '">' + esc(c.label) + (c.required ? ' <span class="req">*</span>' : "") + "</th>").join("") + "<th></th>";
+  }
+  function cellHtml(r, c) {
+    const h = r._hint && r._hint[c.key]; const hint = h ? '<div class="hint ' + h.cls + '">' + esc(h.text) + "</div>" : "";
+    const d = "data-k=\"" + c.key + "\"";
+    if (c.key === "projectId") return '<select ' + d + ">" + optionsHtml(ref.projects, r.projectId, "Select project…") + "</select>" + hint;
+    if (c.key === "assignedUserId") return '<select ' + d + ">" + optionsHtml(ref.users, r.assignedUserId, "Unassigned") + "</select>" + hint;
+    if (c.key === "columnId") return '<select ' + d + ">" + optionsHtml(columnsFor(r.projectId), r.columnId, "Default status") + "</select>" + hint;
+    if (c.key === "description" || c.type === "text") return '<textarea ' + d + ' rows="1" placeholder="What needs to be done, and how will we know it is done?">' + esc(r[c.key]) + "</textarea>" + hint;
+    if (c.type === "enum" && c.options) return '<select ' + d + ">" + optionsHtml(c.options.map((o) => ({ id: o, name: (ref.options[c.key] || {})[o] || o })), r[c.key], "—") + "</select>" + hint;
+    if (c.type === "bool") return '<select ' + d + '><option value="">—</option><option value="true"' + (r[c.key] === true ? " selected" : "") + '>Yes</option><option value="false"' + (r[c.key] === false ? " selected" : "") + ">No</option></select>" + hint;
+    if (c.type === "link") return '<select ' + d + ">" + optionsHtml(linkItems(c), r[c.key], "—") + "</select>" + hint;
+    if (c.type === "linkMultiple" || c.type === "multiEnum") { const items = c.type === "multiEnum" ? enumItems(c) : linkItems(c); const names = (Array.isArray(r[c.key]) ? r[c.key] : []).map((id) => nameOf(items, id)).filter(Boolean).join(", "); return '<input ' + d + ' list="dl-' + c.key + '" value="' + esc(names) + '" placeholder="Names, comma separated"><datalist id="dl-' + c.key + '">' + items.map((i) => '<option value="' + esc(i.name) + '">').join("") + "</datalist>" + hint; }
+    if (c.type === "date") return '<input ' + d + ' type="date" value="' + esc(r[c.key] || "") + '">' + hint;
+    if (c.type === "datetime") return '<input ' + d + ' type="datetime-local" value="' + esc(r[c.key] || "") + '">' + hint;
+    if (c.type === "int" || c.type === "float") return '<input ' + d + ' type="number" step="' + (c.type === "int" ? "1" : "0.5") + '" value="' + esc(r[c.key] ?? "") + '">' + hint;
+    return '<input ' + d + ' value="' + esc(r[c.key] ?? "") + '" placeholder="' + (c.key === "name" ? "Short, specific title" : "") + '">' + hint;
+  }
+  function renderRows() {
+    const cols = allCols().filter((c) => visibleCols.has(c.key));
+    const f = norm($("filter").value);
+    const tb = $("rows"); tb.innerHTML = "";
+    if (!rows.length) { tb.innerHTML = '<tr class="dropzone"><td colspan="' + (cols.length + 3) + '">No tickets yet. Add a row, paste from a sheet, or drop an Excel file here.</td></tr>'; updateSummary(); return; }
+    rows.forEach((r, i) => {
+      if (f && !norm(r.name + " " + r.description + " " + (ref.projects.find((p) => p.id === r.projectId) || {}).name + " " + (ref.users.find((u) => u.id === r.assignedUserId) || {}).name).includes(f)) return;
+      const tr = document.createElement("tr"); tr.dataset.id = r._id; tr.className = (r._errs && r._errs.length ? "bad " : "") + (r._sel ? "sel " : "");
+      tr.innerHTML = '<td class="ck"><input type="checkbox"' + (r._sel ? " checked" : "") + ' aria-label="Select row"></td><td class="n">' + (i + 1) + "</td>" + cols.map((c) => '<td class="cell ' + c.cls + '">' + cellHtml(r, c) + (c.key === "name" && r._errs && r._errs.length ? '<div class="hint bad">' + esc(r._errs[0]) + (r._errs.length > 1 ? " (+" + (r._errs.length - 1) + " more)" : "") + "</div>" : "") + "</td>").join("") +
+        '<td class="act"><button class="btn ghost icon dup" title="Duplicate row">' + ICON.copy + '</button><button class="btn ghost icon del" title="Delete row">' + ICON.trash + "</button></td>";
+      tb.appendChild(tr);
+    });
+    tb.querySelectorAll("textarea").forEach(autoGrow);
+    updateSummary();
+  }
+  function autoGrow(t) { t.style.height = "auto"; t.style.height = Math.min(220, Math.max(36, t.scrollHeight)) + "px"; }
+  function updateSummary() {
+    const n = rows.length, bad = rows.filter((r) => r._errs && r._errs.length).length, una = rows.filter((r) => !r.assignedUserId).length;
+    $("sumLine").textContent = n ? n + " ticket" + (n === 1 ? "" : "s") + (una ? " · " + una + " unassigned" : "") + (bad ? " · " + bad + " with problems" : "") : "";
+    $("reviewBtn").disabled = !n;
+    const sel = rows.filter((r) => r._sel).length; $("selCount").textContent = sel; $("bulk").classList.toggle("on", sel > 0);
+  }
+  function rowOf(el) { const tr = el.closest("tr"); return tr && rows.find((r) => r._id === tr.dataset.id); }
+  function setField(r, k, v) {
+    const c = colByKey(k);
+    if (r._hint) delete r._hint[k];
+    if (c && c.type === "bool") r[k] = v === "" ? "" : v === "true";
+    else if (c && (c.type === "linkMultiple" || c.type === "multiEnum")) { const items = c.type === "multiEnum" ? enumItems(c) : linkItems(c); const names = splitNames(v); const ms = names.map((n) => matchName(n, items)); r[k] = ms.filter((m) => m.item).map((m) => m.item.id); const bad = names.filter((n, i) => !ms[i].item); if (bad.length) r._hint[k] = { cls: "bad", text: "Unknown: " + bad.join(", ") }; }
+    else r[k] = v;
+    if (k === "projectId") { // status list depends on the project
+      const tr = $("rows").querySelector('tr[data-id="' + r._id + '"]'); const st = tr && tr.querySelector('select[data-k="columnId"]');
+      if (st) { const cols = columnsFor(v); if (!cols.some((x) => x.id === r.columnId)) r.columnId = ""; st.innerHTML = optionsHtml(cols, r.columnId, "Default status"); }
+    }
+    if (r._errs && r._errs.length) { validate(rows); const tr = $("rows").querySelector('tr[data-id="' + r._id + '"]'); if (tr) tr.classList.toggle("bad", !!r._errs.length); }
+    saveDraft();
+  }
+
+  // ---------- rendering: review ----------
+  function renderReview() {
+    const list = rows;
+    const projects = new Set(list.map((r) => r.projectId)), users = new Set(list.filter((r) => r.assignedUserId).map((r) => r.assignedUserId));
+    const una = list.filter((r) => !r.assignedUserId).length, noDesc = list.filter((r) => !String(r.description || "").trim()).length, withStatus = list.filter((r) => r.columnId).length;
+    $("tiles").innerHTML = [["Tickets", list.length, "will be created"], ["Projects", projects.size, [...projects].slice(0, 2).map((p) => (ref.projects.find((x) => x.id === p) || {}).name).join(", ") + (projects.size > 2 ? " +" + (projects.size - 2) : "")], ["People", users.size, una ? una + " ticket" + (una === 1 ? "" : "s") + " unassigned" : "every ticket assigned"], ["Descriptions", list.length - noDesc, noDesc ? noDesc + " empty" : "all filled"]]
+      .map(([k, v, s]) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + esc(s) + "</div></div>").join("");
+    const plan = [];
+    plan.push(["check", "Create <b>" + list.length + "</b> ProjectTask record" + (list.length === 1 ? "" : "s") + " in TMS under your account (" + esc(tms.user.name) + ")."]);
+    plan.push(["arrow", withStatus ? withStatus + " start in the status you chose; the rest land in each project's default column." : "All tickets land in each project's default column."]);
+    if (users.size) plan.push(["user", "Assign " + (list.length - una) + " ticket" + (list.length - una === 1 ? "" : "s") + " to " + users.size + " " + (users.size === 1 ? "person" : "people") + ". TMS notifies assignees as it normally does."]);
+    if (una) plan.push(["warn", una + " ticket" + (una === 1 ? "" : "s") + " will be created <b>unassigned</b>."]);
+    if (noDesc) plan.push(["warn", noDesc + " ticket" + (noDesc === 1 ? " has" : "s have") + " no description. Developers will only see the title."]);
+    plan.push(["check", "Nothing is deleted or changed; existing tickets are untouched. Each created ticket is listed with a link afterwards."]);
+    $("plan").innerHTML = plan.map(([ic, html]) => '<li class="' + (ic === "warn" ? "warn" : "") + '">' + ICON[ic] + "<span>" + html + "</span></li>").join("");
+    const byP = {}; list.forEach((r) => { (byP[r.projectId] = byP[r.projectId] || []).push(r); });
+    $("groups").innerHTML = Object.entries(byP).map(([pid, rs]) => {
+      const pname = (ref.projects.find((x) => x.id === pid) || {}).name || pid;
+      return '<div class="card group" style="margin-bottom:12px"><div class="gh"><h3>' + esc(pname) + '</h3><span class="cnt">' + rs.length + " ticket" + (rs.length === 1 ? "" : "s") + '</span></div><table class="rtable"><thead><tr><th>Ticket</th><th>Assign to</th><th>Status</th><th>Extra</th></tr></thead><tbody>' +
+        rs.map((r) => { const u = ref.users.find((x) => x.id === r.assignedUserId); const c = columnsFor(r.projectId).find((x) => x.id === r.columnId); const extra = ref.fields.filter((f) => visibleCols.has(f.key) && r[f.key] !== undefined && r[f.key] !== "" && r[f.key] !== null).map((f) => f.label + ": " + (f.type === "enum" ? ((ref.options[f.key] || {})[r[f.key]] || r[f.key]) : f.type === "link" ? nameOf(linkItems(f), r[f.key]) : f.type === "linkMultiple" || f.type === "multiEnum" ? (Array.isArray(r[f.key]) ? r[f.key] : []).map((id) => nameOf(f.type === "multiEnum" ? enumItems(f) : linkItems(f), id)).join(", ") : f.type === "bool" ? (r[f.key] ? "Yes" : "No") : r[f.key])).join(" · ");
+          return "<tr" + (r._dup ? ' class="dup"' : "") + "><td><b>" + esc(r.name) + "</b>" + (r._dup ? ' <span class="pill warn">already in TMS: ' + esc(r._dup.name) + "</span>" : "") + (String(r.description || "").trim() ? '<div class="desc">' + esc(r.description) + "</div>" : '<div class="desc"><i>No description</i></div>') + "</td><td>" + (u ? esc(u.name) : '<span class="pill warn">Unassigned</span>') + "</td><td>" + (c ? esc(c.name) : '<span class="muted">Default</span>') + "</td><td class=\"muted\">" + esc(extra || "—") + "</td></tr>"; }).join("") + "</tbody></table></div>";
+    }).join("");
+    $("confirmCount").textContent = list.length; $("reviewErr").textContent = ""; $("dupStatus").textContent = "";
+  }
+  async function checkDuplicates() {
+    $("dupStatus").innerHTML = '<span class="spin"></span> Checking…'; let found = 0;
+    try {
+      const byP = {}; rows.forEach((r) => { (byP[r.projectId] = byP[r.projectId] || []).push(r); });
+      for (const [pid, rs] of Object.entries(byP)) {
+        const params = { select: "name,projectId,assignedUserName,columnName", "where[0][type]": "equals", "where[0][attribute]": "projectId", "where[0][value]": pid, "where[1][type]": "in", "where[1][attribute]": "name" };
+        rs.forEach((r, i) => { params["where[1][value][" + i + "]"] = String(r.name).trim(); });
+        const existing = await tms.list("ProjectTask", params);
+        rs.forEach((r) => { const hit = existing.find((t) => norm(t.name) === norm(r.name)); r._dup = hit ? { id: hit.id, name: hit.name } : null; if (hit) found++; });
+      }
+      renderReview();
+      $("dupStatus").textContent = found ? found + " ticket" + (found === 1 ? " already exists" : "s already exist") + " with the same title. They are marked below; go back to remove them if they are duplicates." : "No ticket with these titles exists yet.";
+    } catch (e) { $("dupStatus").textContent = "Could not check: " + e.message; }
+  }
+
+  // ---------- creation ----------
+  let results = [];
+  async function createAll(onlyFailed) {
+    const todo = onlyFailed ? results.filter((x) => !x.ok) : rows.map((r) => ({ row: r, ok: false, id: null, error: null }));
+    if (!onlyFailed) results = todo;
+    show("results"); $("resActions").hidden = true; $("retryBtn").hidden = true; $("resTitle").textContent = "Creating tickets…";
+    renderResults();
+    let done = 0;
+    for (const item of todo) {
+      item.error = null; renderResults(item);
+      try { const created = await tms.req("POST", "ProjectTask", payloadFor(item.row)); item.ok = true; item.id = created && created.id; item.row._done = item.id; item.number = created && created.number; }
+      catch (e) { item.ok = false; item.error = e.status === 403 ? "TMS refused: your account cannot create tickets in this project." : e.message; }
+      done++; $("bar").style.width = Math.round((done / todo.length) * 100) + "%"; $("resCount").textContent = done + " / " + todo.length; renderResults();
+    }
+    const okN = results.filter((x) => x.ok).length, badN = results.length - okN;
+    $("resTitle").textContent = badN ? okN + " created, " + badN + " failed" : okN + " ticket" + (okN === 1 ? "" : "s") + " created";
+    $("resActions").hidden = false; $("retryBtn").hidden = !badN;
+    if (!badN) { store.del("tl.draft"); setStep(3); }
+  }
+  function renderResults(active) {
+    $("resRows").innerHTML = results.map((x, i) => { const r = x.row; const p = (ref.projects.find((y) => y.id === r.projectId) || {}).name || ""; const u = (ref.users.find((y) => y.id === r.assignedUserId) || {}).name || "—";
+      const res = x.ok ? '<a href="' + esc(tms.ticketUrl(x.id)) + '" target="_blank" rel="noopener" class="pill ok">' + ICON.check + " Created" + (x.number ? " #" + esc(x.number) : "") + "</a>" : x.error ? '<span class="pill bad">' + esc(x.error) + "</span>" : x === active ? '<span class="spin"></span>' : '<span class="muted">Waiting</span>';
+      return "<tr><td class=\"muted num\">" + (i + 1) + "</td><td><b>" + esc(r.name) + "</b></td><td>" + esc(p) + "</td><td>" + esc(u) + "</td><td>" + res + "</td></tr>"; }).join("");
+  }
+  function resultsCsv() { const q = (s) => '"' + String(s ?? "").replace(/"/g, '""') + '"'; return ["Ticket,Project,Assigned to,Status,Result,Link"].concat(results.map((x) => { const r = x.row; return [r.name, (ref.projects.find((y) => y.id === r.projectId) || {}).name, (ref.users.find((y) => y.id === r.assignedUserId) || {}).name || "", (columnsFor(r.projectId).find((c) => c.id === r.columnId) || {}).name || "", x.ok ? "Created" : "Failed: " + (x.error || ""), x.ok ? tms.ticketUrl(x.id) : ""].map(q).join(","); })).join("\r\n"); }
+
+  // ---------- navigation ----------
+  function setStep(n) { document.querySelectorAll(".step").forEach((s) => { const k = +s.dataset.s; s.classList.toggle("on", k === n); s.classList.toggle("done", k < n); }); }
+  function show(which) { ["signin", "edit", "review", "results"].forEach((id) => { $(id).hidden = id !== which; }); setStep(which === "edit" ? 1 : which === "review" ? 2 : which === "results" ? 2 : 1); }
+  function fillBulk() { $("bulkProject").innerHTML = optionsHtml(ref.projects, "", "Set project…"); $("bulkUser").innerHTML = optionsHtml(ref.users, "", "Assign to…") + '<option value="__none">Unassign</option>'; $("bulkStatus").innerHTML = optionsHtml(ref.allColumns, "", "Set status…") + '<option value="__none">Default status</option>'; }
+  function renderColsPop() { $("colsPop").innerHTML = "<h3>Columns</h3><p class=\"muted small\">" + ref.fields.length + " extra field" + (ref.fields.length === 1 ? "" : "s") + " found on the TMS ticket form. The Excel template always contains all of them.</p><div class=\"row\" style=\"gap:6px;margin-bottom:8px\"><button type=\"button\" class=\"btn soft\" id=\"colsAll\">Show all</button><button type=\"button\" class=\"btn ghost\" id=\"colsCore\">Basics only</button></div>" + allCols().map((c) => '<label class="ck"><input type="checkbox" data-k="' + c.key + '"' + (visibleCols.has(c.key) ? " checked" : "") + (c.required ? " disabled" : "") + "> " + esc(c.label) + (c.required ? ' <span class="pill bad">required</span>' : "") + (c.core ? "" : ' <span class="muted mono">' + esc(TYPE_WORDS[c.type] || c.type) + "</span>") + "</label>").join("") + (ref.fields.length ? "" : '<p class="muted" style="margin-top:6px">No extra fields were found on the TMS ticket form.</p>'); }
+
+  async function afterLogin() {
+    $("who").hidden = false; $("whoName").textContent = tms.user.name; $("avatar").textContent = (tms.user.name || "?").split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
+    show("edit"); $("rows").innerHTML = '<tr class="dropzone"><td colspan="8"><span class="spin"></span> Loading people, projects and ticket fields from TMS…</td></tr>';
+    try { await loadReference((m) => { const c = $("rows").querySelector("td"); if (c) c.innerHTML = '<span class="spin"></span> ' + esc(m); }); }
+    catch (e) { toast("Could not load reference data: " + e.message); }
+    const restored = restoreDraft(); $("draftNote").hidden = !restored;
+    if (!rows.length) rows = [newRow()];
+    // rows restored from a draft may carry hints for ids that resolved; re-validate quietly
+    renderHead(); fillBulk(); renderColsPop(); renderRows();
+    if (!ref.projects.length) toast("No projects could be read from TMS. Check that your account can see projects.");
+  }
+
+  // ---------- events ----------
+  $("loginForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault(); $("loginErr").textContent = ""; $("loginBtn").disabled = true; $("loginBusy").hidden = false;
+    try { await tms.login($("base").value.trim() || "https://tms.nupipay.com", $("user").value.trim(), $("pass").value); $("pass").value = ""; await afterLogin(); }
+    catch (e) { $("loginErr").textContent = e.message; }
+    finally { $("loginBtn").disabled = false; $("loginBusy").hidden = true; }
+  });
+  $("signOut").addEventListener("click", async () => { await tms.logout(); $("who").hidden = true; show("signin"); });
+  $("addRow").addEventListener("click", () => { rows.push(newRow({ projectId: rows.length ? rows[rows.length - 1].projectId : "" })); renderRows(); saveDraft(); const last = $("rows").querySelector("tr:last-child input[data-k=name]"); if (last) last.focus(); });
+  $("addFive").addEventListener("click", () => { for (let i = 0; i < 5; i++) rows.push(newRow({ projectId: rows.length ? rows[rows.length - 1].projectId : "" })); renderRows(); saveDraft(); });
+  $("clearAll").addEventListener("click", () => { if (!rows.length) return; const n = rows.length; rows = [newRow()]; renderRows(); store.del("tl.draft"); toast("Cleared " + n + " row" + (n === 1 ? "" : "s")); });
+  $("dropDraft").addEventListener("click", () => { rows = [newRow()]; store.del("tl.draft"); $("draftNote").hidden = true; renderRows(); });
+  $("filter").addEventListener("input", renderRows);
+  $("colsBtn").addEventListener("click", () => { renderColsPop(); $("colsPop").hidden = !$("colsPop").hidden; });
+  $("colsPop").addEventListener("change", (ev) => { const k = ev.target.dataset.k; if (!k) return; if (ev.target.checked) visibleCols.add(k); else visibleCols.delete(k); renderHead(); renderRows(); saveDraft(); });
+  $("colsPop").addEventListener("click", (ev) => { const b = ev.target.closest("button"); if (!b) return; if (b.id === "colsAll") allCols().forEach((c) => visibleCols.add(c.key)); else if (b.id === "colsCore") { allCols().forEach((c) => { if (!c.core && !c.required) visibleCols.delete(c.key); }); } else return; renderColsPop(); renderHead(); renderRows(); saveDraft(); });
+  document.addEventListener("mousedown", (ev) => { if (!ev.target.closest(".anchor")) $("colsPop").hidden = true; });
+  // grid editing (delegated)
+  $("rows").addEventListener("input", (ev) => { const r = rowOf(ev.target); const k = ev.target.dataset.k; if (!r || !k) return; if (ev.target.tagName === "TEXTAREA") autoGrow(ev.target); if (ev.target.tagName !== "SELECT") setField(r, k, ev.target.value); });
+  $("rows").addEventListener("change", (ev) => { const r = rowOf(ev.target); if (!r) return; if (ev.target.type === "checkbox" && ev.target.closest(".ck")) { r._sel = ev.target.checked; ev.target.closest("tr").classList.toggle("sel", r._sel); updateSummary(); return; } const k = ev.target.dataset.k; if (k) { setField(r, k, ev.target.value); const hint = ev.target.parentElement.querySelector(".hint.bad, .hint.warn"); if (hint && !ev.target.classList.contains("name")) hint.remove(); } });
+  $("rows").addEventListener("click", (ev) => { const b = ev.target.closest("button"); const r = rowOf(ev.target); if (!b || !r) return; const i = rows.indexOf(r); if (b.classList.contains("del")) rows.splice(i, 1); else if (b.classList.contains("dup")) { const c = newRow(Object.assign({}, r, { _id: undefined, _sel: false, _done: null, _errs: [] })); c._id = uid(); rows.splice(i + 1, 0, c); } renderRows(); saveDraft(); });
+  $("rows").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.matches("input[data-k=name]") && !ev.shiftKey) { ev.preventDefault(); const r = rowOf(ev.target); const i = rows.indexOf(r); if (i === rows.length - 1) { rows.push(newRow({ projectId: r.projectId })); renderRows(); saveDraft(); } const next = $("rows").querySelectorAll("input[data-k=name]")[i + 1]; if (next) next.focus(); } });
+  // bulk
+  const selRows = () => rows.filter((r) => r._sel);
+  $("bulkProject").addEventListener("change", (ev) => { if (!ev.target.value) return; selRows().forEach((r) => { r.projectId = ev.target.value; if (!columnsFor(r.projectId).some((c) => c.id === r.columnId)) r.columnId = ""; delete r._hint.projectId; }); ev.target.value = ""; renderRows(); saveDraft(); });
+  $("bulkUser").addEventListener("change", (ev) => { if (!ev.target.value) return; selRows().forEach((r) => { r.assignedUserId = ev.target.value === "__none" ? "" : ev.target.value; delete r._hint.assignedUserId; }); ev.target.value = ""; renderRows(); saveDraft(); });
+  $("bulkStatus").addEventListener("change", (ev) => { if (!ev.target.value) return; selRows().forEach((r) => { r.columnId = ev.target.value === "__none" ? "" : ev.target.value; delete r._hint.columnId; }); ev.target.value = ""; renderRows(); saveDraft(); });
+  $("bulkDel").addEventListener("click", () => { rows = rows.filter((r) => !r._sel); if (!rows.length) rows = [newRow()]; renderRows(); saveDraft(); });
+  $("bulkDup").addEventListener("click", () => { const copies = selRows().map((r) => { const c = newRow(Object.assign({}, r, { _sel: false, _done: null, _errs: [] })); c._id = uid(); return c; }); rows.forEach((r) => { r._sel = false; }); rows = rows.concat(copies); renderRows(); saveDraft(); });
+  $("bulkNone").addEventListener("click", () => { rows.forEach((r) => { r._sel = false; }); renderRows(); });
+  // paste + drop + file
+  function absorb(imported, source) {
+    if (!imported.rows.length) { toast("Nothing usable found in " + source + "."); return; }
+    if (rows.length === 1 && !rows[0].name && !rows[0].description) rows = [];
+    rows = rows.concat(imported.rows); renderHead(); renderRows(); saveDraft(); validate(rows); renderRows();
+    const unresolved = imported.rows.filter((r) => Object.values(r._hint || {}).some((h) => h && h.cls === "bad")).length;
+    toast("Added " + imported.rows.length + " row" + (imported.rows.length === 1 ? "" : "s") + " from " + source + (unresolved ? "; " + unresolved + " need a person, project or status fixed" : "") + (imported.unmapped.length ? "; ignored columns: " + imported.unmapped.join(", ") : ""));
+  }
+  document.addEventListener("paste", (ev) => {
+    if ($("edit").hidden) return; const t = ev.target;
+    const text = ev.clipboardData && ev.clipboardData.getData("text/plain"); if (!text) return;
+    const multi = /\n|\t/.test(text.trim());
+    if (!multi) return; // single value: let the input take it
+    if (t && t.matches && t.matches("textarea") && !/\t/.test(text)) return; // multi-line description, no tabs: plain paste
+    ev.preventDefault(); absorb(mapImported(parseDelimited(text)), "the clipboard");
+  });
+  async function importFile(file) {
+    try {
+      if (/\.(xlsx|xls)$/i.test(file.name)) absorb(await importWorkbook(await file.arrayBuffer()), file.name);
+      else absorb(mapImported(parseDelimited(await file.text())), file.name);
+    } catch (e) { toast("Import failed: " + e.message); }
+  }
+  $("fileIn").addEventListener("change", (ev) => { const f = ev.target.files && ev.target.files[0]; if (f) importFile(f); ev.target.value = ""; });
+  const gw = $("gridwrap");
+  ["dragenter", "dragover"].forEach((t) => gw.addEventListener(t, (ev) => { ev.preventDefault(); gw.classList.add("drag"); }));
+  ["dragleave", "drop"].forEach((t) => gw.addEventListener(t, (ev) => { ev.preventDefault(); gw.classList.remove("drag"); }));
+  gw.addEventListener("drop", (ev) => { const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if (f) importFile(f); });
+  // template download
+  $("dlTemplate").addEventListener("click", async () => {
+    const b = $("dlTemplate"); b.disabled = true;
+    try {
+      if (!window.ExcelJS) throw new Error("The Excel library did not load; reload the page.");
+      const wb = await buildTemplate(); const buf = await wb.xlsx.writeBuffer();
+      await saveFile("NUPI Ticket Import Template.xlsx", new Blob([buf])); toast("Template saved. Lists inside it are live from TMS as of today.");
+    } catch (e) { if (e && e.code === "declined") return; toast("Could not save the template: " + (e.message || e.code || e)); }
+    finally { b.disabled = false; }
+  });
+  // Sample sheet shipped inside the page: byte-for-byte the repo's template/NUPI Ticket Import Template.xlsx (base64).
+  const SAMPLE_XLSX_B64 = "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";
+  function sampleBlob() { const bin = atob(SAMPLE_XLSX_B64); const bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); return new Blob([bytes]); }
+  document.querySelectorAll(".dlSample").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    try {
+      await saveFile("NUPI Ticket Import Template (sample).xlsx", sampleBlob()); toast("Sample sheet saved. Names in it are placeholders; download the template after sign-in for live lists.");
+    } catch (e) { if (e && e.code === "declined") return; toast("Could not get the sample sheet: " + (e.message || e.code || e)); }
+    finally { b.disabled = false; }
+  }));
+  // review / confirm
+  $("reviewBtn").addEventListener("click", () => {
+    rows = rows.filter((r) => r.name || r.description || r.projectId); if (!rows.length) rows = [newRow()];
+    const problems = validate(rows); renderRows();
+    if (problems.length) { $("editErr").textContent = problems.length + " row" + (problems.length === 1 ? " needs" : "s need") + " fixing before review (marked in red)."; const tr = $("rows").querySelector("tr.bad"); if (tr && tr.scrollIntoView) tr.scrollIntoView({ block: "center" }); return; }
+    $("editErr").textContent = ""; rows.forEach((r) => { r._dup = null; }); renderReview(); show("review"); window.scrollTo({ top: 0 });
+  });
+  $("backBtn").addEventListener("click", () => { show("edit"); renderRows(); });
+  $("dupCheck").addEventListener("click", checkDuplicates);
+  $("confirmBtn").addEventListener("click", async () => { $("confirmBtn").disabled = true; try { await createAll(false); } finally { $("confirmBtn").disabled = false; } });
+  $("retryBtn").addEventListener("click", () => createAll(true));
+  $("newBatch").addEventListener("click", () => { rows = [newRow()]; results = []; store.del("tl.draft"); renderRows(); show("edit"); });
+  $("copyBtn").addEventListener("click", async () => { const txt = resultsCsv().replace(/","/g, '"\t"').replace(/^"|"$/gm, "").replace(/"\t"/g, "\t"); try { await navigator.clipboard.writeText(txt); toast("Copied " + results.length + " rows."); } catch { const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); toast("Press Ctrl/Cmd+C to copy."); } });
+  $("exportBtn").addEventListener("click", async () => { try { await saveFile("tms-created-tickets-" + new Date().toISOString().slice(0, 10) + ".csv", resultsCsv()); } catch (e) { if (e && e.code !== "declined") toast("Could not save: " + (e.message || e.code)); } });
+  $("saveApp").addEventListener("click", async () => { try { await saveFile("NUPI Ticket Loader.html", SOURCE_HTML); toast("Saved. Open “NUPI Ticket Loader.html” from your Downloads folder and sign in there."); } catch (e) { if (e && e.code !== "declined") toast("Could not save: " + (e.message || e.code)); } });
+
+  // ---------- boot ----------
+  $("sandboxNote").hidden = !IN_SANDBOX;
+  if (IN_SANDBOX) { $("loginBtn").textContent = "Sign in (only works on the website)"; }
+  if (!IN_SANDBOX && tms.restore()) { afterLogin(); } else { show("signin"); const u = store.get("tl.user"); if (u) $("user").value = u; }
+  $("loginForm").addEventListener("submit", () => store.set("tl.user", $("user").value.trim()));
+
+  // Exposed for the headless test harness.
+  window.TL = { tms, ref, IN_SANDBOX, saveFile, parseDateText, toEspoDateTime, templateCols, get rows() { return rows; }, set rows(v) { rows = v; }, visibleCols, newRow, matchName, parseDelimited, mapImported, importWorkbook, buildTemplate, validate, payloadFor, headerToKey, renderRows, renderHead, afterLogin, resultsCsv, get results() { return results; } };
+})();
+</script>
+
+</body>
+</html>
