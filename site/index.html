@@ -303,13 +303,16 @@ table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-widt
     base: "https://tms.nupipay.com", auth: "", user: null,
     get api() { return this.base.replace(/\/+$/, "") + "/api/v1"; },
     async req(method, path, body) {
-      let res;
+      let res; const ctl = typeof AbortController === "function" ? new AbortController() : null; const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
       try {
-        res = await fetch(this.api + "/" + path, { method, headers: Object.assign({ Authorization: "Basic " + this.auth }, body !== undefined ? { "Content-Type": "application/json" } : {}), body: body === undefined ? undefined : JSON.stringify(body) });
+        res = await fetch(this.api + "/" + path, { method, headers: Object.assign({ Authorization: "Basic " + this.auth }, body !== undefined ? { "Content-Type": "application/json" } : {}), body: body === undefined ? undefined : JSON.stringify(body), signal: ctl ? ctl.signal : undefined });
       } catch (e) {
+        if (timer) clearTimeout(timer);
+        if (e && e.name === "AbortError") { const err = new Error("TMS did not answer " + path.split("?")[0] + " within 30 seconds."); err.status = 0; err.timeout = true; throw err; }
         // TMS sends no CORS headers on 401/403, so the browser reports a network error. Treat it as "refused".
         const err = new Error(IN_SANDBOX ? "This page cannot reach TMS from inside claude.ai. Use the website: https://akashtripathi9.github.io/tms-ticket-loader/" : "Could not reach TMS: the username or password was refused, the session expired, or the TMS address is wrong."); err.status = 0; throw err;
       }
+      if (timer) clearTimeout(timer);
       const text = await res.text();
       if (!res.ok) { const err = new Error("TMS " + method + " " + path.split("?")[0] + " failed: HTTP " + res.status + (res.headers.get("x-status-reason") ? " (" + res.headers.get("x-status-reason") + ")" : "") + (text ? " " + text.slice(0, 200) : "")); err.status = res.status; throw err; }
       return text ? JSON.parse(text) : undefined;
@@ -331,7 +334,7 @@ table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-widt
     async logout() { try { await this.req("POST", "App/action/destroyAuthToken", { token: atob(this.auth).split(":").slice(1).join(":") }); } catch { /* ignore */ } this.auth = ""; this.user = null; sess.del("tl.session"); },
     ticketUrl(id) { return this.base.replace(/\/+$/, "") + "/#ProjectTask/view/" + id; },
     async list(entity, params) { const q = new URLSearchParams(Object.assign({ maxSize: "200", offset: "0" }, params)); const d = await this.req("GET", entity + "?" + q); return (d && d.list) || []; },
-    async listAll(entity, params) { const out = []; for (let off = 0; off < 2000; off += 200) { const page = await this.list(entity, Object.assign({}, params, { offset: String(off) })); out.push(...page); if (page.length < 200) break; } return out; },
+    async listAll(entity, params, max, onPage) { max = max || 2000; const out = []; for (let off = 0; off < max; off += 200) { const page = await this.list(entity, Object.assign({}, params, { offset: String(off) })); out.push(...page); if (onPage) onPage(out.length); if (page.length < 200) break; } return out; },
   };
 
   // ---------- reference data ----------
@@ -354,24 +357,22 @@ table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-widt
   const TYPE_WORDS = { enum: "choice", link: "pick one", linkMultiple: "pick several", date: "date", datetime: "date & time", int: "whole number", float: "number", currency: "amount", bool: "yes / no", varchar: "text", url: "link", multiEnum: "several choices", text: "long text", wysiwyg: "long text" };
 
   async function loadReference(progress) {
-    progress("Loading people…");
-    try {
-      ref.users = (await tms.listAll("User", { orderBy: "name", order: "asc", select: "name,userName,type,isActive", "where[0][type]": "isTrue", "where[0][attribute]": "isActive" })).filter((u) => !u.type || ["regular", "admin"].includes(u.type));
-    } catch (e) {
-      ref.users = [];
-    }
-    progress("Loading projects…");
-    try { ref.projects = await tms.listAll("Project", { orderBy: "name", order: "asc", select: "name" }); } catch { ref.projects = []; }
-    try { ref.teams = await tms.listAll("Team", { orderBy: "name", order: "asc", select: "name" }); } catch { ref.teams = []; }
-    progress("Reading ticket types and stages…");
-    let groupList = [], columnList = [];
-    try { groupList = await tms.listAll("ProjectGroup", { orderBy: "order", order: "asc", select: "name,projectId,projectName,order" }); } catch { groupList = []; }
-    try { columnList = await tms.listAll("ProjectColumn", { orderBy: "order", order: "asc", select: "name,boardId,boardName,order" }); } catch { columnList = []; }
-    progress("Reading ticket fields…");
-    let defs = {}, i18n = {};
-    try { defs = (await tms.req("GET", "Metadata?key=entityDefs.ProjectTask.fields")) || {}; } catch { defs = {}; }
-    try { ref.links = (await tms.req("GET", "Metadata?key=entityDefs.ProjectTask.links")) || {}; } catch { ref.links = {}; }
-    try { i18n = (await tms.req("GET", "I18n")) || {}; } catch { i18n = {}; }
+    // Everything that does not depend on something else is fetched at once; a list the account cannot read just comes back empty.
+    const done = new Set(); const steps = ["people", "projects", "teams", "ticket types", "stages", "fields", "labels"];
+    const tick = (name) => { done.add(name); progress("Loading from TMS: " + steps.filter((x) => !done.has(x)).join(", ") + "…"); };
+    const safe = (name, fn, fallback) => fn().then((v) => { tick(name); return v; }, () => { tick(name); return fallback; });
+    progress("Loading from TMS: " + steps.join(", ") + "…");
+    const [users, projects, teams, groupList, columnList, defs, links, i18n] = await Promise.all([
+      safe("people", () => tms.listAll("User", { orderBy: "name", order: "asc", select: "name,userName,type,isActive", "where[0][type]": "isTrue", "where[0][attribute]": "isActive" }, 1000), []),
+      safe("projects", () => tms.listAll("Project", { orderBy: "name", order: "asc", select: "name" }, 1000), []),
+      safe("teams", () => tms.listAll("Team", { orderBy: "name", order: "asc", select: "name" }, 400), []),
+      safe("ticket types", () => tms.listAll("ProjectGroup", { orderBy: "order", order: "asc", select: "name,projectId,projectName,order" }, 1000), []),
+      safe("stages", () => tms.listAll("ProjectColumn", { orderBy: "order", order: "asc", select: "name,boardId,boardName,order" }, 1000), []),
+      safe("fields", () => tms.req("GET", "Metadata?key=entityDefs.ProjectTask.fields"), {}),
+      safe("fields", () => tms.req("GET", "Metadata?key=entityDefs.ProjectTask.links"), {}),
+      safe("labels", () => tms.req("GET", "I18n"), {}),
+    ]);
+    ref.users = (users || []).filter((u) => !u.type || ["regular", "admin"].includes(u.type)); ref.projects = projects || []; ref.teams = teams || []; ref.links = links || {};
     ref.labels = (i18n.ProjectTask && i18n.ProjectTask.fields) || {};
     ref.options = (i18n.ProjectTask && i18n.ProjectTask.options) || {};
     ref.tooltips = (i18n.ProjectTask && i18n.ProjectTask.tooltips) || {};
@@ -397,9 +398,13 @@ table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-widt
     ref.fields.filter((f) => f.required).forEach((f) => visibleCols.add(f.key));
     // Fallbacks when lists are restricted: harvest from recent tickets.
     let recent = [];
+    // One page of recent tickets is enough to learn boards; more pages only when a list could not be read directly.
+    const needMore = !ref.users.length || !ref.projects.length || !groupList.length || !columnList.length;
     const RECENT_SEL = "columnId,columnName,projectId,projectName,assignedUserId,assignedUserName,boardId,groupId,groupName";
-    try { recent = await tms.listAll("ProjectTask", { orderBy: "modifiedAt", order: "desc", select: RECENT_SEL }); }
-    catch { try { recent = await tms.listAll("ProjectTask", { orderBy: "modifiedAt", order: "desc", select: "columnId,columnName,projectId,projectName,assignedUserId,assignedUserName" }); } catch { recent = []; } }
+    const onPage = (n) => progress("Reading recent tickets… " + n);
+    progress("Reading recent tickets…");
+    try { recent = await tms.listAll("ProjectTask", { orderBy: "modifiedAt", order: "desc", select: RECENT_SEL }, needMore ? 1000 : 200, onPage); }
+    catch { try { recent = await tms.listAll("ProjectTask", { orderBy: "modifiedAt", order: "desc", select: "columnId,columnName,projectId,projectName,assignedUserId,assignedUserName" }, needMore ? 1000 : 200, onPage); } catch { recent = []; } }
     if (!ref.users.length) { const m = new Map(); recent.forEach((t) => { if (t.assignedUserId && !m.has(t.assignedUserId)) m.set(t.assignedUserId, { id: t.assignedUserId, name: t.assignedUserName || t.assignedUserId }); }); ref.users = [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
     if (!ref.projects.length) { const m = new Map(); recent.forEach((t) => { if (t.projectId && !m.has(t.projectId)) m.set(t.projectId, { id: t.projectId, name: t.projectName || t.projectId }); }); ref.projects = [...m.values()].sort((a, b) => a.name.localeCompare(b.name)); }
     // Boards: which board each project uses and which board each column belongs to
@@ -842,12 +847,15 @@ table.grid { border-collapse: separate; border-spacing: 0; width: 100%; min-widt
   async function afterLogin() {
     $("who").hidden = false; $("whoName").textContent = tms.user.name; $("avatar").textContent = (tms.user.name || "?").split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase();
     show("edit"); $("rows").innerHTML = '<tr class="dropzone"><td colspan="8"><span class="spin"></span> Loading people, projects and ticket fields from TMS…</td></tr>';
-    try { await loadReference((m) => { const c = $("rows").querySelector("td"); if (c) c.innerHTML = '<span class="spin"></span> ' + esc(m); }); }
+    const started = Date.now(); const slow = setTimeout(() => { const c = $("rows").querySelector("td"); if (c && !c.querySelector(".slow")) c.insertAdjacentHTML("beforeend", '<div class="slow muted" style="margin-top:8px;font-size:.85rem">TMS is answering slowly. Each request gives up after 30 seconds and the page continues with what it has.</div>'); }, 12000);
+    try { await loadReference((m) => { const c = $("rows").querySelector("td"); if (c) c.innerHTML = '<span class="spin"></span> ' + esc(m) + (Date.now() - started > 12000 ? '<div class="slow muted" style="margin-top:8px;font-size:.85rem">TMS is answering slowly. Each request gives up after 30 seconds and the page continues with what it has.</div>' : ""); }); }
     catch (e) { toast("Could not load reference data: " + e.message); }
-    const restored = restoreDraft(); $("draftNote").hidden = !restored;
-    if (!rows.length) rows = [newRow()];
-    // rows restored from a draft may carry hints for ids that resolved; re-validate quietly
-    renderHead(); fillBulk(); renderColsPop(); renderRows();
+    finally { clearTimeout(slow); }
+    try {
+      const restored = restoreDraft(); $("draftNote").hidden = !restored;
+      if (!rows.length) rows = [newRow()];
+      renderHead(); fillBulk(); renderColsPop(); renderRows();
+    } catch (e) { $("rows").innerHTML = '<tr class="dropzone"><td colspan="8">Something went wrong while drawing the grid: ' + esc(e.message) + ". Reload the page; if it repeats, send this message to Akash.</td></tr>"; throw e; }
     if (!ref.projects.length) toast("No projects could be read from TMS. Check that your account can see projects.");
   }
 
