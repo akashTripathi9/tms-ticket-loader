@@ -78,12 +78,42 @@ and accepts the standard `Authorization: Basic` header.
   template generation, validation, review, duplicate check, creation,
   failure + retry, drafts, sign-out. `npm test`
 
+## What a ticket needs (verified against TMS on 2026-10-23)
+
+`scripts/tms_projecttask_schema.json` is a snapshot of the real ProjectTask
+field definitions, links and labels, read from TMS with a regular user's
+session. The page reads the same thing live after sign-in; the snapshot drives
+the offline sample sheet and documents the form.
+
+Required by TMS on create:
+
+| Field (TMS label)   | How the loader fills it                                   |
+|---------------------|-----------------------------------------------------------|
+| name                | Ticket title column                                       |
+| project             | Project column (dropdown)                                 |
+| group "Ticket Type" | Ticket Type column; blank = the project's "Task" group    |
+| column "Stage"      | Stage column; blank = the project's first stage (To Do)   |
+| owner "Creator"     | always the signed-in user                                 |
+| priority            | Priority column; blank = Normal                           |
+
+`boardId` is sent alongside the stage when known (from ProjectColumn or recent
+tickets), as the TMS UI does. `status` is read-only ("Ignore") and left to TMS.
+
+Optional fields found on the form and offered as columns: Type (Task /
+Milestone), Date Start, Date End, Planned Start/End Date, Due Date, Target
+Date, Estimate Hours, Hours, Points, Client Name, Epic Name, Category, Product
+Family / Type / Product, Feature Type, Features, Environment, Health, Impact,
+Timeline Confidence, Paid CR, Ticket Sub-Type, Issue Type / Category / Sub
+Category / Sub Type, Management Response, Allocation (multi), Tester (users,
+multi), Reference Ticket Number, Prototype Link, Working on it today.
+Read-only, computed and attachment fields are left out.
+
 ## Not yet verified against live TMS
 
-- That the account used can list `User` and `Project` (fallbacks exist).
-- Exact ProjectTask field names in this TMS (the page reads them at runtime).
-- That `POST ProjectTask` accepts `columnId` on create; if TMS ignores it,
-  tickets land in the default column and a follow-up `PUT` would be needed.
+- That the account used can list `User`, `Project`, `Team`, `ProjectGroup`
+  and `ProjectColumn` (fallbacks harvest all of them from recent tickets).
+- An actual `POST ProjectTask` from the page (the payload mirrors the one the
+  TMS UI sends, including `groupId`, `ownerId`, `columnId` and `boardId`).
 - EspoCRM accepting `Authorization: Basic user:token` without the
   `Espo-Authorization-By-Token` header (the TMS CORS policy does not allow
   that header from a browser). If it does not, the page silently keeps using

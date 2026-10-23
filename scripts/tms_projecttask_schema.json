@@ -1,0 +1,1441 @@
+{
+ "capturedAt": "2026-10-23",
+ "source": "GET /api/v1/Metadata?key=entityDefs.ProjectTask.{fields,links} and /api/v1/I18n (ProjectTask section), read with a regular user's session",
+ "fields": {
+  "name": {
+   "type": "varchar",
+   "maxLength": 100,
+   "required": true
+  },
+  "project": {
+   "type": "link",
+   "required": true
+  },
+  "type": {
+   "type": "enum",
+   "options": [
+    "Task",
+    "Milestone"
+   ],
+   "default": "Task",
+   "maxLength": 9
+  },
+  "fromTasks": {
+   "type": "linkMultiple"
+  },
+  "parentTask": {
+   "type": "link",
+   "readOnly": false
+  },
+  "subTasks": {
+   "type": "linkMultiple",
+   "readOnly": true
+  },
+  "actualSubTaskCount": {
+   "type": "int",
+   "readOnly": true
+  },
+  "dependencyTaskType": {
+   "type": "enum",
+   "options": [
+    "",
+    "fs",
+    "ff",
+    "ss",
+    "sf"
+   ],
+   "notStorable": true,
+   "utility": true
+  },
+  "group": {
+   "type": "link",
+   "required": true
+  },
+  "groupColor": {
+   "type": "foreign"
+  },
+  "groupOrder": {
+   "type": "foreign"
+  },
+  "column": {
+   "type": "link",
+   "required": true
+  },
+  "boardId": {
+   "type": "foreign",
+   "utility": true
+  },
+  "status": {
+   "type": "enum",
+   "options": [
+    "Not Started",
+    "Started",
+    "Completed",
+    "Canceled",
+    "Deferred"
+   ],
+   "default": "Not Started",
+   "maxLength": 16,
+   "readOnly": true
+  },
+  "priority": {
+   "type": "enum",
+   "options": [
+    "Low",
+    "Normal",
+    "High",
+    "Urgent"
+   ],
+   "default": "Normal",
+   "maxLength": 6,
+   "required": true
+  },
+  "order": {
+   "type": "int",
+   "readOnly": true
+  },
+  "combinedOrder": {
+   "type": "int",
+   "utility": true,
+   "readOnly": true,
+   "notStorable": true
+  },
+  "boardOrder": {
+   "type": "int",
+   "readOnly": true
+  },
+  "dateStart": {
+   "type": "date",
+   "required": false
+  },
+  "dateEnd": {
+   "type": "date",
+   "required": false
+  },
+  "timeline": {
+   "type": "base",
+   "notStorable": true
+  },
+  "completedAt": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "points": {
+   "type": "int",
+   "min": 0
+  },
+  "hours": {
+   "type": "float",
+   "min": 0
+  },
+  "description": {
+   "type": "text"
+  },
+  "attachments": {
+   "type": "attachmentMultiple"
+  },
+  "owner": {
+   "type": "link",
+   "required": true
+  },
+  "assignedUser": {
+   "type": "link"
+  },
+  "memberRoleData": {
+   "type": "jsonObject",
+   "utility": true,
+   "notStorable": true,
+   "readOnly": true
+  },
+  "parentTaskAttributes": {
+   "type": "jsonObject",
+   "utility": true,
+   "notStorable": true,
+   "readOnly": true
+  },
+  "createdAt": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "modifiedAt": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "createdBy": {
+   "type": "link",
+   "readOnly": true
+  },
+  "modifiedBy": {
+   "type": "link",
+   "readOnly": true
+  },
+  "cEstimateHours": {
+   "type": "float",
+   "required": false
+  },
+  "cLoggedHours": {
+   "type": "linkMultiple"
+  },
+  "cDocuments": {
+   "type": "linkMultiple"
+  },
+  "cReleases": {
+   "type": "linkMultiple"
+  },
+  "cEpicName": {
+   "type": "enum",
+   "options": [
+    "",
+    "New Web Mandi (Laptop View)",
+    "Admin Dashboard",
+    "Admin Portal",
+    "CAPA IC",
+    "COATS",
+    "Infra",
+    "Mapei",
+    "NUPICS",
+    "Oswaal",
+    "Prataap",
+    "Shopify Plugin",
+    "Wipro",
+    "Atomberg",
+    "Atomberg Phase 1",
+    "Atomberg Phase 2",
+    "DEPLOYMENT",
+    "Mayora Phase 1",
+    "Mayora Phase 2",
+    "Native Mandi-Product 5.0",
+    "Navneet",
+    "New Web Mandi",
+    "NUPI APP-Mandi",
+    "NUPI APP",
+    "NUPI App-New design",
+    "NUPI APP-Voucher Mandi",
+    "Production Support",
+    "LIC Mini Neo",
+    "CRM",
+    "Walplast",
+    "Recold",
+    "WWC",
+    "Mahindra"
+   ],
+   "maxLength": 100,
+   "required": false
+  },
+  "cPlannedStartDate": {
+   "type": "date",
+   "required": false
+  },
+  "cPlannedEndDate": {
+   "type": "date",
+   "required": false
+  },
+  "cDueDate": {
+   "type": "date"
+  },
+  "cTrialEnum": {
+   "type": "enum",
+   "options": [
+    "",
+    "yes",
+    "nlo",
+    "yesno",
+    "vk"
+   ],
+   "maxLength": 100
+  },
+  "cUsers": {
+   "type": "linkMultiple"
+  },
+  "cUniqueID": {
+   "type": "varchar",
+   "maxLength": 1000,
+   "readOnly": true,
+   "options": []
+  },
+  "cBEProgressToBEDone": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cFEDone": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cIntegrationDOne": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cQADone": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cClientName": {
+   "type": "enum",
+   "required": false,
+   "maxLength": 100,
+   "options": [
+    "",
+    "STIHL",
+    "Mahacol",
+    "Ather",
+    "Oswaal",
+    "Mapei",
+    "IC Capa",
+    "Nichino",
+    "WWC",
+    "Walplast",
+    "Nupi Website",
+    "Redemption Mandi",
+    "Admin Portal",
+    "COATs",
+    "Kerakoll",
+    "NUPI APP",
+    "IRIS",
+    "Shopify",
+    "Mayora",
+    "LIC",
+    "Prataap",
+    "NOVA",
+    "Atomberg",
+    "KERAKOLL",
+    "Corporate",
+    "Navneet Retailer",
+    "Navneet Consumer",
+    "Racold",
+    "Nippon Paints",
+    "L.K. Electricals"
+   ],
+   "default": null
+  },
+  "cSpillageHours": {
+   "type": "float",
+   "readOnly": true
+  },
+  "cStageForAnalysis": {
+   "type": "enum",
+   "options": [
+    "",
+    "To Do",
+    "In Progress",
+    "BE in Progress",
+    "FE in Progress",
+    "BE Done",
+    "FE Done",
+    "Integration Done",
+    "QA in Progress",
+    "QA Done",
+    "Done",
+    "Released",
+    "Backlog"
+   ],
+   "maxLength": 100,
+   "readOnly": true
+  },
+  "cIssueType": {
+   "type": "enum",
+   "options": [
+    "",
+    "Data Upload & Mapping",
+    "New Feature Request",
+    "Bug Fix",
+    "Change Request",
+    "Outages",
+    "Reports"
+   ],
+   "maxLength": 100
+  },
+  "cCR": {
+   "type": "enum",
+   "options": [
+    "",
+    "Yes",
+    "No"
+   ],
+   "maxLength": 100
+  },
+  "cExpectedClosureDateKAM": {
+   "type": "date"
+  },
+  "cProductType": {
+   "type": "enum",
+   "options": [
+    "",
+    "App",
+    "Dashboard",
+    "Rule Engine",
+    "Payout API",
+    "KYC API",
+    "Name Match API",
+    "DB"
+   ],
+   "maxLength": 100
+  },
+  "cTotalLoggedHours": {
+   "type": "float",
+   "readOnly": true
+  },
+  "cSpillageDate": {
+   "type": "int",
+   "readOnly": true
+  },
+  "cAge": {
+   "type": "int",
+   "readOnly": true
+  },
+  "cTech": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cAccountManagementVerification": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cResolved": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cManagement": {
+   "type": "datetime",
+   "readOnly": true
+  },
+  "cTicketSubType": {
+   "type": "enum",
+   "required": false,
+   "options": [
+    "",
+    "FE",
+    "BE"
+   ],
+   "maxLength": 100
+  },
+  "cEnvironment": {
+   "type": "enum",
+   "options": [
+    "",
+    "QA",
+    "UAT",
+    "Production"
+   ],
+   "maxLength": 100
+  },
+  "cCategory": {
+   "type": "enum",
+   "options": [
+    "",
+    "Servicing",
+    "On Boarding",
+    "CR - Change Request",
+    "Feature",
+    "New Product Development"
+   ],
+   "maxLength": 100
+  },
+  "cFeatureType": {
+   "type": "enum",
+   "options": [
+    "",
+    "Accumulation Module-In APP",
+    "App Type",
+    "Bank Checker",
+    "Bank submission Module",
+    "Campaign Creation Module",
+    "Campaign Scheduler",
+    "Claims Portal",
+    "Composite Payments",
+    "Corporate Creation",
+    "Corporate User",
+    "Credit Note",
+    "Custom Branding",
+    "Dashboard",
+    "Data addition",
+    "First Cut Implementation",
+    "Geo fencing",
+    "Geo Tagging",
+    "Help desk",
+    "Inquiry Module",
+    "Inventory Master",
+    "KYC Checker",
+    "KYC submission Module",
+    "Language",
+    "Login Module",
+    "Notification Broadcaster",
+    "Notification Creator",
+    "Payout Module",
+    "Performance Module",
+    "Product Mandi",
+    "Profile Module",
+    "Rebate Promotion Manager",
+    "Registration Module",
+    "Reports",
+    "Rewards Module",
+    "Role Master",
+    "Rule Engine",
+    "Sales and Operation Planning",
+    "Server Setup & Deployment",
+    "Share Visting Card",
+    "SMS Integration",
+    "Tier",
+    "User Cohort",
+    "User Hierarchy",
+    "User Management",
+    "User Type Creation",
+    "Voucher Mandi",
+    "Wallet Module",
+    "Terms & Conditions",
+    "Privacy Policy",
+    "FAQ",
+    "Media read policy",
+    "Bundle ID & Signing certificate",
+    "Deployment",
+    "SMS services",
+    "Program Configuration"
+   ],
+   "maxLength": 100,
+   "required": false
+  },
+  "cProductFamily": {
+   "type": "enum",
+   "options": [
+    "",
+    "CMS",
+    "User Management",
+    "Notifications",
+    "Rules & Automation",
+    "Marketplace ( Mandi )",
+    "Records & Tracking",
+    "Gamification & Rewards",
+    "Reports & Insights",
+    "Program Settings",
+    "Aura",
+    "IRIS",
+    "Integrations",
+    "Payments",
+    "Dashboards",
+    "Website",
+    "Nupi App",
+    "Rule Engine",
+    "Payout API",
+    "KYC API",
+    "Name Match API",
+    "DB",
+    "Scrum"
+   ],
+   "maxLength": 100,
+   "required": false
+  },
+  "cResourceAllocation": {
+   "type": "multiEnum",
+   "default": [],
+   "options": [
+    "",
+    "Manish",
+    "Mahesh",
+    "Abhijeet",
+    "Akash",
+    "Nikita",
+    "Vipul",
+    "Ameer",
+    "Yash V",
+    "Yogesh",
+    "Pratik",
+    "Deepak",
+    "Ajay",
+    "Prashant"
+   ]
+  },
+  "cHealth": {
+   "type": "enum",
+   "options": [
+    "",
+    "On Track",
+    "Blocked",
+    "On Hold",
+    "Hotfix"
+   ],
+   "maxLength": 100
+  },
+  "cImpact": {
+   "type": "enum",
+   "options": [
+    "",
+    "Must-Have",
+    "Nice-to-Have"
+   ],
+   "maxLength": 100
+  },
+  "cIssueSubType": {
+   "type": "enum",
+   "options": [
+    "",
+    "KYC Status Update",
+    "Bank Verification Status Update",
+    "Claim Status Update",
+    "User Addition",
+    "User Blocking",
+    "User Mapping",
+    "Points Reversal",
+    "Points Addition",
+    "Wallet Deduction",
+    "Mobile Number Update",
+    "Wallet Creation",
+    "Code Activation",
+    "New Corporate Creation",
+    "Enhancement in Existing Feature",
+    "New Feature Development",
+    "Scanning Error",
+    "Payout Error",
+    "Login Error",
+    "Downloadable Reports",
+    "Data Upload Error",
+    "KYC API Error",
+    "Name Match Error",
+    "Rule Engine Error",
+    "Code Generation",
+    "KYC API Downtime",
+    "Payout API Downtime",
+    "Admin Portal Downtime",
+    "Sales Target Upload / Deletion",
+    "Location Data Upload /  Deletion",
+    "Sales Data Upload / Deletion",
+    "New Report Creation",
+    "Existing Report Modification",
+    "Application Downtime",
+    "Server Downtime",
+    "Transactions Status Check",
+    "Pending Transactions to be cleared",
+    "Cosmetic Changes (Simple UI Changes)",
+    "Modification in existing flow",
+    "Modification in existing user hierarchy",
+    "Client product feedback",
+    "Internal Product Feedback"
+   ],
+   "maxLength": 100
+  },
+  "cProductSubType": {
+   "type": "enum",
+   "options": [
+    "",
+    "Login Page",
+    "Home Page",
+    "Scheme Page",
+    "Claims Submission",
+    "Mandi",
+    "Payouts Page",
+    "Location Data Upload",
+    "Sales Data Upload",
+    "User Registry",
+    "User Verification",
+    "Sales Target Upload",
+    "Notification Broadcaster",
+    "Downloadable Reports",
+    "Wallet Balance Screen",
+    "Rule Engine",
+    "DB",
+    "KYC API",
+    "Name Match API",
+    "Payouts API",
+    "Scrum"
+   ],
+   "maxLength": 100,
+   "required": false
+  },
+  "cConfidence": {
+   "type": "enum",
+   "options": [
+    "",
+    "High",
+    "Medium",
+    "Low"
+   ],
+   "maxLength": 100
+  },
+  "cDiscoveryAnalysisDocument": {
+   "type": "attachmentMultiple"
+  },
+  "cDesignDoc": {
+   "type": "attachmentMultiple"
+  },
+  "cPrototypeLink": {
+   "type": "url"
+  },
+  "cStageForAnalysisNets": {
+   "type": "enum",
+   "options": [
+    "",
+    "New Feature Request Approval"
+   ],
+   "readOnly": true,
+   "maxLength": 100
+  },
+  "cManagementResponse": {
+   "type": "enum",
+   "options": [
+    "Pending",
+    "Approved",
+    "Rejected"
+   ],
+   "default": "Pending",
+   "maxLength": 100
+  },
+  "cOrignatedIn": {
+   "type": "enum",
+   "options": [
+    "",
+    "Tech Board",
+    "Nets Board",
+    "Product Tank"
+   ],
+   "maxLength": 100,
+   "readOnly": true
+  },
+  "cMilestones": {
+   "type": "linkMultiple"
+  },
+  "cFeatures": {
+   "type": "enum",
+   "options": [
+    "",
+    "User Type",
+    "User Hierarchy",
+    "User Registry",
+    "User Cohort",
+    "KYC Checker",
+    "Bank Checker",
+    "User Tiers",
+    "Tier Hierarchy",
+    "Notification Creation",
+    "Notification Scheduling",
+    "Rule Engine",
+    "Catalog Upload",
+    "Catalog Tagging",
+    "Order Tracking",
+    "Inventory Upload",
+    "Sales Record",
+    "Sales Target",
+    "Spin A Wheel",
+    "Scratch Card",
+    "Scheduler",
+    "Payouts",
+    "Reports",
+    "Dashboard",
+    "Program Configuration",
+    "Program Docs",
+    "Corporate Master",
+    "Currency Master",
+    "Popup Banner",
+    "Banner Scheduler",
+    "Claim Master",
+    "Registration",
+    "Login",
+    "Invitation Code",
+    "QR Scan",
+    "Barcode Scan",
+    "Custom Form",
+    "Claim Upload (Store Audit)",
+    "Manual Inventory Code",
+    "Refer & Earn",
+    "P2P Point transfer",
+    "Approved & Pending claim history",
+    "Active & Inactive schemes",
+    "Points",
+    "Vouchers",
+    "Coupons",
+    "Product Mandi",
+    "Voucher Mandi",
+    "Bank Transfer",
+    "Mandi Wishlist",
+    "ledger Details & Transactions",
+    "Edit Personal Details",
+    "KYC verification",
+    "Bank Verification",
+    "Change password",
+    "Creation of T-Pin",
+    "Program Terms & Condition",
+    "Program Privacy policy",
+    "Multi-Language",
+    "Custom Contact Us",
+    "Custom FAQ",
+    "Logout",
+    "Delete Account",
+    "Scrum"
+   ],
+   "maxLength": 100
+  },
+  "cReferenceTicketNumber": {
+   "type": "varchar",
+   "maxLength": 100,
+   "options": []
+  },
+  "cWorkingOnItToday": {
+   "type": "bool"
+  },
+  "cNetsTicketAge": {
+   "type": "int",
+   "readOnly": true
+  },
+  "cIssueCategory": {
+   "type": "enum",
+   "options": [
+    "",
+    "Account",
+    "App",
+    "Bank",
+    "General",
+    "KYC",
+    "Order",
+    "Points",
+    "Redemption"
+   ],
+   "maxLength": 100
+  },
+  "cIssueSubCategory": {
+   "type": "enum",
+   "options": [
+    "",
+    "Access Issue",
+    "Bug",
+    "Delivery Delay",
+    "Failure",
+    "Missing Points",
+    "Other",
+    "Placement Issue",
+    "Rejection",
+    "Verification"
+   ],
+   "maxLength": 100
+  },
+  "streamUpdatedAt": {
+   "type": "datetime",
+   "readOnly": true
+  }
+ },
+ "links": {
+  "project": {
+   "type": "belongsTo",
+   "entity": "Project"
+  },
+  "group": {
+   "type": "belongsTo",
+   "entity": "ProjectGroup"
+  },
+  "column": {
+   "type": "belongsTo",
+   "entity": "ProjectColumn"
+  },
+  "parentTask": {
+   "type": "belongsTo",
+   "entity": "ProjectTask"
+  },
+  "subTasks": {
+   "type": "hasMany",
+   "entity": "ProjectTask"
+  },
+  "fromTasks": {
+   "type": "hasMany",
+   "entity": "ProjectTask"
+  },
+  "toTasks": {
+   "type": "hasMany",
+   "entity": "ProjectTask"
+  },
+  "owner": {
+   "type": "belongsTo",
+   "entity": "User"
+  },
+  "assignedUser": {
+   "type": "belongsTo",
+   "entity": "User"
+  },
+  "createdBy": {
+   "type": "belongsTo",
+   "entity": "User"
+  },
+  "modifiedBy": {
+   "type": "belongsTo",
+   "entity": "User"
+  },
+  "cLoggedHours": {
+   "type": "hasMany",
+   "entity": "CLoggedHours"
+  },
+  "cDocuments": {
+   "type": "hasMany",
+   "entity": "Document"
+  },
+  "cReleases": {
+   "type": "hasMany",
+   "entity": "CRelease"
+  },
+  "cUsers": {
+   "type": "hasMany",
+   "entity": "User"
+  },
+  "cDiscoveryAnalysisDocument": {
+   "type": "hasChildren",
+   "entity": "Attachment"
+  },
+  "cDesignDoc": {
+   "type": "hasChildren",
+   "entity": "Attachment"
+  },
+  "attachments": {
+   "type": "hasChildren",
+   "entity": "Attachment"
+  },
+  "cMilestones": {
+   "type": "hasMany",
+   "entity": "CMilestone"
+  }
+ },
+ "labels": {
+  "project": "Project",
+  "fromTasks": "Dependent On",
+  "parentTask": "Parent Task",
+  "subTasks": "Bugs",
+  "dependencyTaskType": "Dependency Type",
+  "group": "Ticket Type",
+  "groupColor": "Group Color",
+  "groupOrder": "Group Order",
+  "status": "Ignore",
+  "column": "Stage",
+  "priority": "Priority",
+  "order": "Order",
+  "dateStart": "Date Start",
+  "dateEnd": "Date End",
+  "points": "Points",
+  "hours": "Hours",
+  "attachments": "Attachments",
+  "timeline": "Timeline",
+  "owner": "Creator",
+  "combinedOrder": "Combined Order",
+  "boardOrder": "Board Order",
+  "type": "Type",
+  "completedAt": "Completed At",
+  "assignedUser": "Assignee",
+  "actualSubTaskCount": "Number of actual sub-tasks",
+  "cEstimateHours": "Estimate Hours",
+  "cLoggedHours": "Logged Hours",
+  "cDocuments": "Documents",
+  "cReleases": "Releases",
+  "cEpicName": "Epic Name",
+  "cPlannedStartDate": "Planned Start Date",
+  "cPlannedEndDate": "Planned End Date",
+  "cDueDate": "Due Date",
+  "cTrialEnum": "Trial Enum",
+  "cUsers": "Tester",
+  "cUniqueID": "Unique ID",
+  "cBEProgressToBEDone": "BE Done",
+  "cFEDone": "FE Done",
+  "cIntegrationDOne": "Integration Done",
+  "cQADone": "QA Done",
+  "cClientName": "Client Name",
+  "cSpillageHours": "Spillage Hours",
+  "cStageForAnalysis": "Stage for Analysis",
+  "cIssueType": "Issue Type",
+  "cCR": "Paid CR",
+  "cExpectedClosureDateKAM": "Target Date",
+  "cProductType": "Product Type",
+  "cTotalLoggedHours": "Total Logged Hours",
+  "cSpillageDate": "Spillage Date",
+  "cAge": "Age",
+  "cTech": "Tech",
+  "cAccountManagementVerification": "Account Management Verification",
+  "cResolved": "Resolved",
+  "cManagement": "Management",
+  "cTicketSubType": "Ticket Sub-Type",
+  "cEnvironment": "Environment",
+  "cCategory": "Category",
+  "cFeatureType": "Feature Type",
+  "cProductFamily": "Product Family",
+  "cResourceAllocation": "Allocation",
+  "cHealth": "Health",
+  "cImpact": "Impact",
+  "cIssueSubType": "Issue Sub Type",
+  "cProductSubType": "Product",
+  "cConfidence": "Timeline Confidence",
+  "cDiscoveryAnalysisDocument": "Discovery Analysis Document",
+  "cDesignDoc": "Design Scope Document",
+  "cPrototypeLink": "Prototype Link",
+  "cStageForAnalysisNets": "Stage for analysis Nets",
+  "cManagementResponse": "Management Response",
+  "cOrignatedIn": "Orignated In",
+  "cMilestones": "Milestones",
+  "cFeatures": "Features",
+  "cReferenceTicketNumber": "Reference Ticket Number",
+  "cWorkingOnItToday": "Working on it today",
+  "cNetsTicketAge": "Nets Ticket Age",
+  "cIssueCategory": "Issue Category",
+  "cIssueSubCategory": "Issue Sub Category"
+ },
+ "options": {
+  "status": {
+   "Not Started": "Not Started",
+   "Started": "Started",
+   "Completed": "Completed",
+   "Canceled": "Canceled",
+   "Deferred": "Deferred"
+  },
+  "priority": {
+   "Low": "Low",
+   "Normal": "Normal",
+   "High": "High",
+   "Urgent": "Urgent"
+  },
+  "dependencyTaskType": {
+   "fs": "Finish to Start",
+   "ss": "Start to Start",
+   "ff": "Finish to Finish",
+   "sf": "Start to Finish"
+  },
+  "dependencyTaskTypeShort": {
+   "fs": "FS",
+   "ss": "SS",
+   "ff": "FF",
+   "sf": "SF"
+  },
+  "type": {
+   "Task": "Task",
+   "Milestone": "Milestone"
+  },
+  "cEpicName": {
+   "": "",
+   "Nupi App": "Nupi App",
+   "Nupi Mandi": "Nupi Mandi",
+   "New Web Mandi (Laptop View)": "New Web Mandi (Laptop View)",
+   "Admin Dashboard": "Admin Dashboard",
+   "Admin Portal": "Admin Portal",
+   "CAPA IC": "CAPA IC",
+   "COATS": "COATS",
+   "Infra": "Infra",
+   "LIC - Mini Neo": "LIC - Mini Neo",
+   "Mapei": "Mapei",
+   "NUPI APP": "NUPI APP",
+   "NUPICS": "NUPICS",
+   "Oswaal": "Oswaal",
+   "Prataap": "Prataap",
+   "Shopify Plugin": "Shopify Plugin",
+   "Wipro": "Wipro",
+   "Atomberg": "Atomberg",
+   "Atomberg Phase 1": "Atomberg Phase 1",
+   "Atomberg Phase 2": "Atomberg Phase 2",
+   "DEPLOYMENT": "DEPLOYMENT",
+   "Mayora Phase 1": "Mayora Phase 1",
+   "Mayora Phase 2": "Mayora Phase 2",
+   "Native Mandi-Product 5.0": "Native Mandi-Product 5.0",
+   "Navneet": "Navneet",
+   "New Web Mandi": "New Web Mandi",
+   "NUPI APP-Mandi": "NUPI APP-Mandi",
+   "NUPI App-New design": "NUPI App-New design",
+   "NUPI APP-Voucher Mandi": "NUPI APP-Voucher Mandi",
+   "Production Support": "Production Support",
+   "LIC Mini Neo": "LIC Mini Neo",
+   "CRM": "CRM",
+   "Walplast": "Walplast",
+   "Recold": "Recold",
+   "WWC": "WWC",
+   "Mahindra": "Mahindra"
+  },
+  "cTrialEnum": {
+   "": "",
+   "yes": "yes",
+   "nlo": "nlo",
+   "yesno": "yesno",
+   "vk": "vk"
+  },
+  "cClientName": {
+   "STIHL": "STIHL",
+   "Mahacol": "Mahacol",
+   "Ather": "Ather",
+   "Oswaal": "Oswaal",
+   "Mapei": "Mapei",
+   "IC Capa": "IC Capa",
+   "Nichino": "Nichino",
+   "WWC": "WWC",
+   "Walplast": "Walplast",
+   "Nupi Website": "Nupi Website",
+   "Redemption Mandi": "Redemption Mandi",
+   "Admin Portal": "Admin Portal",
+   "COATs": "COATs",
+   "Kerakoll": "Kerakoll",
+   "NUPI APP": "NUPI APP",
+   "IRIS": "IRIS",
+   "Shopify": "Shopify",
+   "Mayora": "Mayora",
+   "LIC": "LIC",
+   "Prataap": "Prataap",
+   "": "",
+   "NOVA": "NOVA",
+   "Atomberg": "Atomberg",
+   "KERAKOLL": "KERAKOLL",
+   "Corporate": "Corporate",
+   "Navneet Retailer": "Navneet Retailer",
+   "Navneet Consumer": "Navneet Consumer",
+   "Racold": "Racold",
+   "Nippon Paints": "Nippon Paints",
+   "L.K. Electricals": "L.K. Electricals"
+  },
+  "cStageForAnalysis": {
+   "": "",
+   "To Do": "To Do",
+   "In Progress": "In Progress",
+   "BE in Progress": "BE in Progress",
+   "FE in Progress": "FE in Progress",
+   "BE Done": "BE Done",
+   "FE Done": "FE Done",
+   "Integration Done": "Integration Done",
+   "QA in Progress": "QA in Progress",
+   "QA Done": "QA Done",
+   "Done": "Done",
+   "Released": "Released",
+   "Backlog": "Backlog"
+  },
+  "cIssueType": {
+   "": "",
+   "Data Upload & Mapping": "Data Upload & Mapping",
+   "New Feature Request": "New Feature Request",
+   "Bug Fix": "Bug Fix",
+   "Change Request": "Enhancement in existing feature",
+   "Outages": "Outages",
+   "Reports": "Reports"
+  },
+  "cCR": {
+   "": "",
+   "Yes": "Yes",
+   "No": "No"
+  },
+  "cProductType": {
+   "": "",
+   "App": "App",
+   "Dashboard": "Admin Portal",
+   "Rule Engine": "Rule Engine",
+   "Payout API": "Payout API",
+   "KYC API": "KYC API",
+   "Name Match API": "Name Match API",
+   "DB": "DB"
+  },
+  "cTicketSubType": {
+   "": "",
+   "FE": "FE",
+   "BE": "BE"
+  },
+  "cEnvironment": {
+   "": "",
+   "QA": "QA",
+   "UAT": "UAT",
+   "Production": "Production"
+  },
+  "cCategory": {
+   "": "",
+   "Servicing": "Servicing",
+   "On Boarding": "On Boarding",
+   "CR - Change Request": "CR - Change Request",
+   "Feature": "Feature",
+   "New Product Development": "New Product Development"
+  },
+  "cFeatureType": {
+   "": "",
+   "Accumulation Module-In APP": "Accumulation Module-In APP",
+   "App Type": "App Type",
+   "Bank Checker": "Bank Checker",
+   "Bank submission Module": "Bank submission Module",
+   "Campaign Creation Module": "Campaign Creation Module",
+   "Campaign Scheduler": "Campaign Scheduler",
+   "Claims Portal": "Claims Portal",
+   "Composite Payments": "Composite Payments",
+   "Corporate Creation": "Corporate Creation",
+   "Corporate User": "Corporate User",
+   "Credit Note": "Credit Note",
+   "Custom Branding": "Custom Branding",
+   "Dashboard": "Dashboard",
+   "Data addition": "Data addition",
+   "First Cut Implementation": "First Cut Implementation",
+   "Geo fencing": "Geo fencing",
+   "Geo Tagging": "Geo Tagging",
+   "Help desk": "Help desk",
+   "Inquiry Module": "Inquiry Module",
+   "Inventory Master": "Inventory Master",
+   "KYC Checker": "KYC Checker",
+   "KYC submission Module": "KYC submission Module",
+   "Language": "Language",
+   "Login Module": "Login Module",
+   "Notification Broadcaster": "Notification Broadcaster",
+   "Notification Creator": "Notification Creator",
+   "Payout Module": "Payout Module",
+   "Performance Module": "Performance Module",
+   "Product Mandi": "Product Mandi",
+   "Profile Module": "Profile Module",
+   "Rebate Promotion Manager": "Rebate Promotion Manager",
+   "Registration Module": "Registration Module",
+   "Reports": "Reports",
+   "Rewards Module": "Rewards Module",
+   "Role Master": "Role Master",
+   "Rule Engine": "Rule Engine",
+   "Sales and Operation Planning": "Sales and Operation Planning",
+   "Server Setup & Deployment": "Server Setup & Deployment",
+   "Share Visting Card": "Share Visting Card",
+   "SMS Integration": "SMS Integration",
+   "Tier": "Tier",
+   "User Cohort": "User Cohort",
+   "User Hierarchy": "User Hierarchy",
+   "User Management": "User Management",
+   "User Type Creation": "User Type Creation",
+   "Voucher Mandi": "Voucher Mandi",
+   "Wallet Module": "Wallet Module",
+   "Terms & Conditions": "Terms & Conditions",
+   "Privacy Policy": "Privacy Policy",
+   "FAQ": "FAQ",
+   "Media read policy": "Media read policy",
+   "Bundle ID & Signing certificate": "Bundle ID & Signing certificate",
+   "Deployment": "Deployment",
+   "SMS services": "SMS services",
+   "Program Configuration": "Program Configuration"
+  },
+  "cProductFamily": {
+   "": "",
+   "CMS": "CMS",
+   "User Management": "User Management",
+   "Notifications": "Notifications",
+   "Rules & Automation": "Rules & Automation",
+   "Marketplace ( Mandi )": "Marketplace ( Mandi )",
+   "Records & Tracking": "Records & Tracking",
+   "Gamification & Rewards": "Gamification & Rewards",
+   "Reports & Insights": "Reports & Insights",
+   "Program Settings": "Program Settings",
+   "Aura": "Aura",
+   "IRIS": "IRIS",
+   "Integrations": "Integrations",
+   "Payments": "Payments",
+   "Dashboards": "Dashboards",
+   "Website": "Website",
+   "Nupi App": "Nupi App",
+   "Rule Engine": "Rule Engine",
+   "Payout API": "Payout API",
+   "KYC API": "KYC API",
+   "Name Match API": "Name Match API",
+   "DB": "DB",
+   "Scrum": "Scrum"
+  },
+  "cResourceAllocation": {
+   "": "",
+   "Manish": "Manish",
+   "Mahesh": "Mahesh",
+   "Abhijeet": "Abhijeet",
+   "Akash": "Akash",
+   "Nikita": "Nikita",
+   "Vipul": "Vipul",
+   "Ameer": "Ameer",
+   "Yash V": "Yash V",
+   "Yogesh": "Yogesh",
+   "Pratik": "Pratik",
+   "Deepak": "Deepak",
+   "Ajay": "Ajay",
+   "Prashant": "Prashant"
+  },
+  "cHealth": {
+   "": "",
+   "On Track": "On Track",
+   "Blocked": "Blocked",
+   "On Hold": "On Hold",
+   "Hotfix": "Hotfix"
+  },
+  "cImpact": {
+   "": "",
+   "Must-Have": "Must-Have",
+   "Should-Have": "Should-Have",
+   "Nice-to-Have": "Good-to-Have"
+  },
+  "cIssueSubType": {
+   "": "",
+   "KYC Status Update": "KYC Status Update",
+   "Bank Verification Status Update": "Bank Verification Status Update",
+   "Claim Status Update": "Claim Status Update",
+   "User Addition": "User Addition",
+   "User Blocking": "User Blocking",
+   "User Mapping": "User Mapping",
+   "Points Reversal": "Points Reversal",
+   "Points Addition": "Points Addition / Subtractions",
+   "Wallet Deduction": "Wallet Deduction",
+   "Transactions": "Transactions",
+   "Mobile Number Update": "Mobile Number Update",
+   "Wallet Creation": "Wallet Creation",
+   "Code Activation": "Code Activation",
+   "Reports": "Reports",
+   "Dashboard": "Dashboard",
+   "New Corporate Creation": "New Corporate Creation",
+   "Data Upload / Deletion": "Data Upload / Deletion",
+   "Enhancement in Existing Feature": "Enhancement in Existing Feature",
+   "New Feature Development": "New Feature Development",
+   "Scanning Error": "Scanning Error",
+   "Payout Error": "Payout Error",
+   "Login Error": "Login Error",
+   "Downloadable Reports": "Downloadable Reports",
+   "Data Upload Error": "Data Upload Error",
+   "Payout API Error": "Payout API Error",
+   "KYC API Error": "KYC API Error",
+   "Name Match Error": "Name Match Error",
+   "Rule Engine Error": "Rule Engine Error",
+   "Outages": "Outages",
+   "Code Generation": "Code Generation",
+   "KYC API Downtime": "KYC API Downtime",
+   "Payout API Downtime": "Payout API Downtime",
+   "Admin Portal Downtime": "Admin Portal Downtime",
+   "Sales Target Upload / Deletion": "Sales Target Upload / Deletion",
+   "Location Data Upload /  Deletion": "Location Data Upload /  Deletion",
+   "Sales Data Upload / Deletion": "Sales Data Upload / Deletion",
+   "New Report Creation": "New Report Creation",
+   "Existing Report Modification": "Existing Report Modification",
+   "Application Downtime": "Application Downtime",
+   "Server Downtime": "Server Downtime",
+   "Transactions Status Check": "Transactions Status Check",
+   "Pending Transactions to be cleared": "Pending Transactions to be cleared",
+   "Cosmetic Changes (Simple UI Changes)": "Cosmetic Changes (Simple UI Changes)",
+   "Modification in existing flow": "Modification in existing flow",
+   "Modification in existing user hierarchy": "Modification in existing user hierarchy",
+   "Client product feedback": "Client product feedback",
+   "Internal Product Feedback": "Internal Product Feedback"
+  },
+  "cProductSubType": {
+   "": "",
+   "test]": "test]",
+   "Login Page": "Login Page",
+   "Home Page": "Home Page",
+   "Scheme Page": "Scheme Page",
+   "Claims Submission": "Claims Submission",
+   "Mandi": "Mandi",
+   "Payouts Page": "Payouts Page",
+   "Location Data Upload": "Location Data Upload",
+   "Sales Data Upload": "Sales Data Upload",
+   "User Registry": "User Registry",
+   "User Verification": "User Verification",
+   "Sales Target Upload": "Sales Target Upload",
+   "Notification Broadcaster": "Notification Broadcaster",
+   "Downloadable Reports": "Downloadable Reports",
+   "Wallet Balance Screen": "Wallet Balance Screen",
+   "Rule Engine": "Rule Engine",
+   "DB": "DB",
+   "KYC API": "KYC API",
+   "Name Match API": "Name Match API",
+   "Payouts API": "Payouts API",
+   "Scrum": "Scrum"
+  },
+  "cConfidence": {
+   "": "",
+   "High": "High",
+   "Medium": "Medium",
+   "Low": "Low"
+  },
+  "cStageForAnalysisNets": {
+   "": "",
+   "New Feature Request Approval": "New Feature Request Approval"
+  },
+  "cManagementResponse": {
+   "Pending": "Pending",
+   "Approved": "Approved",
+   "Rejected": "Rejected"
+  },
+  "cOrignatedIn": {
+   "": "",
+   "Tech Board": "Tech Board",
+   "Nets Board": "Nets Board",
+   "Product Tank": "Product Tank"
+  },
+  "cFeatures": {
+   "": "",
+   "User Type": "User Type",
+   "User Hierarchy": "User Hierarchy",
+   "User Registry": "User Registry",
+   "User Cohort": "User Cohort",
+   "KYC Checker": "KYC Checker",
+   "Bank Checker": "Bank Checker",
+   "User Tiers": "User Tiers",
+   "Tier Hierarchy": "Tier Hierarchy",
+   "Notification Creation": "Notification Creation",
+   "Notification Scheduling": "Notification Scheduling",
+   "Rule Engine": "Rule Engine",
+   "Catalog Upload": "Catalog Upload",
+   "Catalog Tagging": "Catalog Tagging",
+   "Order Tracking": "Order Tracking",
+   "Inventory Upload": "Inventory Upload",
+   "Sales Record": "Sales Record",
+   "Sales Target": "Sales Target",
+   "Spin A Wheel": "Spin A Wheel",
+   "Scratch Card": "Scratch Card",
+   "Scheduler": "Scheduler",
+   "Payouts": "Payouts",
+   "Reports": "Reports",
+   "Dashboard": "Dashboard",
+   "Program Configuration": "Program Configuration",
+   "Program Docs": "Program Docs",
+   "Corporate Master": "Corporate Master",
+   "Currency Master": "Currency Master",
+   "Popup Banner": "Popup Banner",
+   "Banner Scheduler": "Banner Scheduler",
+   "Claim Master": "Claim Master",
+   "Registration": "Registration",
+   "Login": "Login",
+   "Invitation Code": "Invitation Code",
+   "QR Scan": "QR Scan",
+   "Barcode Scan": "Barcode Scan",
+   "Custom Form": "Custom Form",
+   "Claim Upload (Store Audit)": "Claim Upload (Store Audit)",
+   "Manual Inventory Code": "Manual Inventory Code",
+   "Refer & Earn": "Refer & Earn",
+   "P2P Point transfer": "P2P Point transfer",
+   "Approved & Pending claim history": "Approved & Pending claim history",
+   "Active & Inactive schemes": "Active & Inactive schemes",
+   "Points": "Points",
+   "Vouchers": "Vouchers",
+   "Coupons": "Coupons",
+   "Spin the wheel": "Spin the wheel",
+   "Product Mandi": "Product Mandi",
+   "Voucher Mandi": "Voucher Mandi",
+   "Bank Transfer": "Bank Transfer",
+   "Mandi Wishlist": "Mandi Wishlist",
+   "ledger Details & Transactions": "ledger Details & Transactions",
+   "Edit Personal Details": "Edit Personal Details",
+   "KYC verification": "KYC verification",
+   "Bank Verification": "Bank Verification",
+   "Change password": "Change password",
+   "Creation of T-Pin": "Creation of T-Pin",
+   "Program Terms & Condition": "Program Terms & Condition",
+   "Program Privacy policy": "Program Privacy policy",
+   "Multi-Language": "Multi-Language",
+   "Custom Contact Us": "Custom Contact Us",
+   "Custom FAQ": "Custom FAQ",
+   "Logout": "Logout",
+   "Delete Account": "Delete Account",
+   "Scrum": "Scrum"
+  },
+  "cIssueCategory": {
+   "": "",
+   "Account": "Account",
+   "App": "App",
+   "Bank": "Bank",
+   "General": "General",
+   "KYC": "KYC",
+   "Order": "Order",
+   "Points": "Points",
+   "Redemption": "Redemption"
+  },
+  "cIssueSubCategory": {
+   "": "",
+   "Access Issue": "Access Issue",
+   "Bug": "Bug",
+   "Delivery Delay": "Delivery Delay",
+   "Failure": "Failure",
+   "Missing Points": "Missing Points",
+   "Other": "Other",
+   "Placement Issue": "Placement Issue",
+   "Rejection": "Rejection",
+   "Verification": "Verification"
+  }
+ },
+ "tooltips": {
+  "cPlannedStartDate": "Development will start by the developer",
+  "cPlannedEndDate": "Development will be finished by the developer",
+  "dateStart": "Ideation Phase has started",
+  "dateEnd": "Ideation Phase has ended",
+  "cConfidence": "Confidence reflects how certain you are about completing this feature within the given timeline.",
+  "cImpact": "Impact indicates the importance of this feature — whether it is a must-have or a good-to-have."
+ }
+}
