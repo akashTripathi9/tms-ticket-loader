@@ -1,24 +1,21 @@
 # NUPI Ticket Loader
 
-A single-page web app (published as a claude.ai artifact) for the people who
+A single-page web app for the people who
 create tickets in NupiPay's TMS (tms.nupipay.com, EspoCRM). It replaces
 one-at-a-time ticket entry with a grid, paste-from-sheet, or an Excel import,
 and always shows a review of exactly what will be created before anything is
 sent.
 
-## How it is run (important)
+## Where it runs
 
-The claude.ai artifact viewer blocks every network call a page makes except
-script loads from a few CDNs, so the page **cannot talk to TMS while it is
-open inside claude.ai**. The artifact therefore acts as the distribution point:
-it shows a banner with "Save the app to this computer", which hands over the
-complete page as `NUPI Ticket Loader.html`. Opened from disk (or hosted on any
-ordinary web server, ideally on the TMS server itself) the page calls TMS
-directly; TMS answers cross-origin requests with `Access-Control-Allow-Origin: *`
-and accepts the standard `Authorization: Basic` header.
-
-`scripts/build_standalone.py` writes the same complete document to
-`dist/NUPI Ticket Loader.html` for sharing without going through claude.ai.
+The app is a static page served from GitHub Pages at
+https://akashtripathi9.github.io/tms-ticket-loader/ (branch `gh-pages`,
+repo `akashTripathi9/tms-ticket-loader`). It talks to TMS directly from the
+browser: TMS answers cross-origin requests with `Access-Control-Allow-Origin: *`
+and accepts the standard `Authorization: Basic` header. There is no server in
+between and nothing to install. `scripts/build_standalone.py` wraps the page
+source into `dist/NUPI Ticket Loader.html`, which is what gets deployed as
+`site/index.html`.
 
 ## What it does
 
@@ -70,7 +67,7 @@ and accepts the standard `Authorization: Basic` header.
 
 ## Files
 
-- `ticket-loader.html` the whole app (published artifact source)
+- `ticket-loader.html` the whole app (page source without the document wrapper)
 - `template/NUPI Ticket Import Template.xlsx` offline sample of the template
   with SAMPLE names, built by `scripts/make_template.py`
 - `test/page.test.js` headless test (jsdom + a fake EspoCRM): sign-in, token

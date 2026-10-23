@@ -75,12 +75,11 @@ function boot(opts) {
   vc.on("jsdomError", (e) => errors.push(String(e.detail || e.message || e)));
   const fake = makeFetch(opts);
   const dom = new JSDOM("<!doctype html><html><head><meta charset='utf-8'></head><body>" + html + "</body></html>", {
-    runScripts: "outside-only", pretendToBeVisual: true, virtualConsole: vc, url: "https://claude.ai/artifact/test",
+    runScripts: "outside-only", pretendToBeVisual: true, virtualConsole: vc, url: "https://akashtripathi9.github.io/tms-ticket-loader/",
     beforeParse(window) {
       window.fetch = fake.fetchImpl; window.scrollTo = () => {};
       window.Element.prototype.scrollIntoView = function () {};
-      if (opts.sandbox) window.claude = { use: async (name) => (name === "downloads" ? { save: async (req) => { window.__saved = req; return { status: "saved" }; } } : null) };
-      // Standalone mode saves through a blob link; record it instead of navigating.
+      // Saves go through a blob link; record it instead of navigating.
       window.URL.createObjectURL = (blob) => { window.__blob = blob; return "blob:test"; }; window.URL.revokeObjectURL = () => {};
       window.HTMLAnchorElement.prototype.click = function () { if (this.download) window.__saved = { filename: this.download, data: window.__blob }; };
     },
@@ -123,20 +122,11 @@ function t(name, fn) { return Promise.resolve().then(fn).then(() => { passes++; 
     await t("no JS errors", async () => assert.deepStrictEqual(w.errors, []));
   }
 
-  console.log("Inside the claude.ai sandbox");
-  {
-    const w = boot({ sandbox: true });
-    await t("banner explains the sandbox and offers to save the app", async () => { assert.ok(w.TL.IN_SANDBOX); assert.ok(!w.$("sandboxNote").hidden); assert.match(w.$("loginBtn").textContent, /on the website/); assert.ok(w.$("sandboxNote").querySelector("a[href*='github.io/tms-ticket-loader']")); });
-    await t("a sign-in attempt explains the real cause instead of blaming credentials", async () => { w.window.fetch = async () => { throw new TypeError("blocked by CSP"); }; w.$("user").value = "akash"; w.$("pass").value = "pw"; w.$("loginForm").dispatchEvent(new w.window.Event("submit", { cancelable: true })); await settle(w, 30); assert.match(w.$("loginErr").textContent, /cannot reach TMS from inside claude\.ai/); });
-    await t("Save the app hands the full page to the downloads capability as .html", async () => { w.$("saveApp").click(); await settle(w, 40); assert.ok(w.window.__saved); assert.strictEqual(w.window.__saved.filename, "NUPI Ticket Loader.html"); assert.ok(String(w.window.__saved.data).startsWith("<!doctype html>")); assert.ok(String(w.window.__saved.data).includes("acquireVsCodeApi") === false && String(w.window.__saved.data).includes("NUPI Ticket Loader")); });
-    await t("no JS errors", async () => assert.deepStrictEqual(w.errors, []));
-  }
-
-  console.log("Standalone file (opened from disk)");
+  console.log("Website boot");
   {
     const w = boot();
-    await t("no banner, normal sign-in button", async () => { assert.ok(!w.TL.IN_SANDBOX); assert.ok(w.$("sandboxNote").hidden); assert.strictEqual(w.$("loginBtn").textContent, "Sign in"); });
-    await t("template download uses a blob link outside the sandbox", async () => { await login(w); w.$("dlTemplate").click(); await settle(w, 80); assert.ok(w.window.__saved); assert.strictEqual(w.window.__saved.filename, "NUPI Ticket Import Template.xlsx"); });
+    await t("sign-in screen, no banner", async () => { assert.strictEqual(w.$("loginBtn").textContent, "Sign in"); });
+    await t("template download uses a blob link", async () => { await login(w); w.$("dlTemplate").click(); await settle(w, 80); assert.ok(w.window.__saved); assert.strictEqual(w.window.__saved.filename, "NUPI Ticket Import Template.xlsx"); });
     await t("no JS errors", async () => assert.deepStrictEqual(w.errors, []));
   }
 
@@ -210,7 +200,7 @@ function t(name, fn) { return Promise.resolve().then(fn).then(() => { passes++; 
       assert.ok(wb.getWorksheet("Instructions").getCell("A9").value.toString().includes("Column guide"));
       const buf = await wb.xlsx.writeBuffer(); assert.ok(buf.byteLength > 5000);
     });
-    await t("Download template calls the downloads capability with an xlsx", async () => { w.$("dlTemplate").click(); await settle(w, 80); assert.ok(w.window.__saved); assert.strictEqual(w.window.__saved.filename, "NUPI Ticket Import Template.xlsx"); });
+    await t("Download template saves an xlsx", async () => { w.$("dlTemplate").click(); await settle(w, 80); assert.ok(w.window.__saved); assert.strictEqual(w.window.__saved.filename, "NUPI Ticket Import Template.xlsx"); });
     await t("no JS errors", async () => assert.deepStrictEqual(w.errors, []));
   }
 
